@@ -1,0 +1,11 @@
+com/aerotwin/service/PhysicsServiceClientTest.class
+com/aerotwin/controller/RulControllerTest.class
+com/aerotwin/service/ResidualServiceTest.class
+com/aerotwin/service/MLServiceClientTest.class
+com/aerotwin/controller/HealthControllerTest.class
+com/aerotwin/controller/DiagnosticControllerTest.class
+com/aerotwin/service/DegradationServiceClientTest.class
+com/aerotwin/simulator/HealthyEngineSimulatorTest.class
+com/aerotwin/controller/TelemetryControllerTest.class
+com/aerotwin/service/HealthServiceClientTest.class
+com/aerotwin/controller/TwinControllerTest.class

@@ -1,0 +1,18 @@
+"""Centralized constants for the reduced-order prototype model."""
+
+SEA_LEVEL_PRESSURE_PA = 101325.0
+SEA_LEVEL_TEMPERATURE_C = 15.0
+R_SPECIFIC_AIR = 287.05
+DISPLACEMENT_L = 2.0
+VOLUMETRIC_EFFICIENCY = 0.8
+FUEL_DENSITY_KG_PER_L = 0.72
+IDLE_RPM = 1000.0
+MAX_RPM = 6000.0
+MIN_RPM = 800.0
+MAX_EXPECTED_EGT_C = 1200.0
+MIN_OIL_PRESSURE_KPA = 50.0
+MAX_OIL_PRESSURE_KPA = 550.0
+
+# Prototype thermal response assumptions for a one-second prediction step.
+CHT_RESPONSE_RATE = 0.10
+OIL_RESPONSE_RATE = 0.04
