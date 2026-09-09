@@ -5,6 +5,7 @@ public enum MissionPhase {
     TAKEOFF,
     CLIMB,
     CRUISE,
+    LOITER,
     DESCENT,
     LANDING
 }

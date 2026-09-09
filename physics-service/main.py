@@ -5,6 +5,7 @@ from api.routes import predict
 from api.routes import ml
 from api.routes import health_analysis
 from api.routes import degradation
+from api.routes import mission
 
 app = FastAPI(title="AeroTwin-X Physics Service", version="0.1.0")
 
@@ -13,6 +14,7 @@ app.include_router(predict.router)
 app.include_router(ml.router)
 app.include_router(health_analysis.router)
 app.include_router(degradation.router)
+app.include_router(mission.router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

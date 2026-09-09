@@ -34,7 +34,22 @@ class MLServiceClientTest {
                           "anomalyScore": 0.82,
                           "predictedFault": "INJECTOR_DEGRADATION",
                           "faultProbabilities": {"INJECTOR_DEGRADATION": 0.87},
-                          "modelVersion": "phase4-v1"
+                          "modelVersion": "phase4-v1",
+                          "explanation": {
+                            "predictedFault": "INJECTOR_DEGRADATION",
+                            "classifierConfidence": 0.87,
+                            "explanationAvailable": true,
+                            "topContributors": [
+                              {
+                                "feature": "fuelFlowResidual",
+                                "value": 2.5,
+                                "shapValue": 1.25,
+                                "direction": "TOWARD_FAULT",
+                                "description": "Fuel flow difference from physics expectation"
+                              }
+                            ],
+                            "operatorSummary": "Likely injector degradation."
+                          }
                         }
                         """, MediaType.APPLICATION_JSON));
 
@@ -42,6 +57,10 @@ class MLServiceClientTest {
 
         assertEquals("INJECTOR_DEGRADATION", analysis.predictedFault());
         assertEquals(0.82, analysis.anomalyScore());
+        assertEquals(true, analysis.explanation().explanationAvailable());
+        assertEquals(1, analysis.explanation().topContributors().size());
+        assertEquals("fuelFlowResidual", analysis.explanation().topContributors().get(0).feature());
+        assertEquals("TOWARD_FAULT", analysis.explanation().topContributors().get(0).direction());
         server.verify();
     }
 

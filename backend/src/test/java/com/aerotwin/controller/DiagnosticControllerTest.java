@@ -38,15 +38,24 @@ class DiagnosticControllerTest {
 
     @Test
     void returnsIntegratedDiagnostics() throws Exception {
+        com.aerotwin.model.DiagnosticExplanation explanation = new com.aerotwin.model.DiagnosticExplanation(
+                "MISFIRE",
+                0.90,
+                true,
+                java.util.List.of(new com.aerotwin.model.FeatureContributor("egtResidual", -90.0, 2.5, "TOWARD_FAULT", "EGT difference")),
+                "Likely misfire."
+        );
         DiagnosticSnapshot diagnostics = new DiagnosticSnapshot(
                 snapshot().telemetry(), snapshot().prediction(), snapshot().residuals(),
-                new MLAnalysis(true, 0.82, "MISFIRE", Map.of("MISFIRE", 0.9), "phase4-v1"));
+                new MLAnalysis(true, 0.82, "MISFIRE", Map.of("MISFIRE", 0.9), "phase4-v1", explanation));
         when(diagnosticService.getCurrentDiagnostics()).thenReturn(diagnostics);
 
         mockMvc.perform(get("/api/diagnostics/current"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysis.anomaly").value(true))
                 .andExpect(jsonPath("$.analysis.predictedFault").value("MISFIRE"))
+                .andExpect(jsonPath("$.analysis.explanation.explanationAvailable").value(true))
+                .andExpect(jsonPath("$.analysis.explanation.topContributors[0].feature").value("egtResidual"))
                 .andExpect(jsonPath("$.physicsPrediction.expectedRpm").value(3500.0));
     }
 

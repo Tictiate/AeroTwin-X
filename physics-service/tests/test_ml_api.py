@@ -82,6 +82,7 @@ def test_ml_response_contract():
 
     assert response.anomalyScore == 0.8
     assert sum(response.faultProbabilities.values()) == 1.0
+    assert response.explanation is None
 
 
 

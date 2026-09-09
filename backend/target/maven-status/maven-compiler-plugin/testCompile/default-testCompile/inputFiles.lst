@@ -1,5 +1,6 @@
 /Users/ishaangandhi/Ishaan/Coding/AeroTwin-X/backend/src/test/java/com/aerotwin/controller/DiagnosticControllerTest.java
 /Users/ishaangandhi/Ishaan/Coding/AeroTwin-X/backend/src/test/java/com/aerotwin/controller/HealthControllerTest.java
+/Users/ishaangandhi/Ishaan/Coding/AeroTwin-X/backend/src/test/java/com/aerotwin/controller/MissionControllerTest.java
 /Users/ishaangandhi/Ishaan/Coding/AeroTwin-X/backend/src/test/java/com/aerotwin/controller/RulControllerTest.java
 /Users/ishaangandhi/Ishaan/Coding/AeroTwin-X/backend/src/test/java/com/aerotwin/controller/TelemetryControllerTest.java
 /Users/ishaangandhi/Ishaan/Coding/AeroTwin-X/backend/src/test/java/com/aerotwin/controller/TwinControllerTest.java

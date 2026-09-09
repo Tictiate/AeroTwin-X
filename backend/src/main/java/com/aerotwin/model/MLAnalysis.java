@@ -7,5 +7,15 @@ public record MLAnalysis(
         double anomalyScore,
         String predictedFault,
         Map<String, Double> faultProbabilities,
-        String modelVersion
-) {}
+        String modelVersion,
+        DiagnosticExplanation explanation
+) {
+    public MLAnalysis(
+            boolean anomaly,
+            double anomalyScore,
+            String predictedFault,
+            Map<String, Double> faultProbabilities,
+            String modelVersion) {
+        this(anomaly, anomalyScore, predictedFault, faultProbabilities, modelVersion, null);
+    }
+}
