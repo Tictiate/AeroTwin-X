@@ -14,6 +14,7 @@ HEALTH_HISTORY_WINDOW = 60
 MIN_RUL_HISTORY_SAMPLES = 5
 EOL_HEALTH_THRESHOLD = 50.0
 MIN_DEGRADATION_RATE_PER_HOUR = 0.05
+MIN_MATERIAL_DEGRADATION_FOR_UNRELIABLE_RUL = 0.10
 
 
 class DiagnosticHealthInput(BaseModel):
@@ -125,6 +126,12 @@ def estimate_degradation(inputs: list[DiagnosticHealthInput]) -> DegradationStat
         previous_rate = 0.0
     if len(inputs) < MIN_RUL_HISTORY_SAMPLES:
         trend = "INSUFFICIENT_HISTORY"
+    elif (
+        rate <= MIN_DEGRADATION_RATE_PER_HOUR
+        and current.health.diagnosticType == "PHYSICAL_FAULT"
+        and physical_degradation >= MIN_MATERIAL_DEGRADATION_FOR_UNRELIABLE_RUL
+    ):
+        trend = "DEGRADING"
     elif rate <= MIN_DEGRADATION_RATE_PER_HOUR:
         trend = "STABLE"
     elif previous_rate > MIN_DEGRADATION_RATE_PER_HOUR and rate > previous_rate * 1.25:
@@ -187,7 +194,23 @@ def estimate_rul(inputs: list[DiagnosticHealthInput], degradation: DegradationSt
             degradationRatePerHour=degradation.degradationRatePerHour,
             explanation="RUL is withheld because sensor consistency is degraded; no physical EOL trajectory is established.",
         )
-    if degradation.trend in {"STABLE", "INSUFFICIENT_HISTORY"} or degradation.degradationRatePerHour <= MIN_DEGRADATION_RATE_PER_HOUR:
+    if degradation.degradationRatePerHour <= MIN_DEGRADATION_RATE_PER_HOUR:
+        if degradation.overallDegradation >= MIN_MATERIAL_DEGRADATION_FOR_UNRELIABLE_RUL:
+            return RulEstimate(
+                rulHours=None, lowerBoundHours=None, upperBoundHours=None,
+                confidence=degradation.confidence, status="UNRELIABLE",
+                eolHealthThreshold=EOL_HEALTH_THRESHOLD,
+                degradationRatePerHour=degradation.degradationRatePerHour,
+                explanation="Physical degradation is present, but its recent noisy trajectory does not support a reliable RUL rate.",
+            )
+        return RulEstimate(
+            rulHours=None, lowerBoundHours=None, upperBoundHours=None,
+            confidence=degradation.confidence, status="STABLE",
+            eolHealthThreshold=EOL_HEALTH_THRESHOLD,
+            degradationRatePerHour=degradation.degradationRatePerHour,
+            explanation="No reliable measurable physical degradation trend is present; RUL is not estimable.",
+        )
+    if degradation.trend in {"STABLE", "INSUFFICIENT_HISTORY"}:
         return RulEstimate(
             rulHours=None, lowerBoundHours=None, upperBoundHours=None,
             confidence=degradation.confidence, status="STABLE",

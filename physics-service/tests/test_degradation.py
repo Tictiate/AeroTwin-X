@@ -141,6 +141,26 @@ def test_sensor_fault_reduces_confidence_without_catastrophic_physical_degradati
     assert rul.status in {"STABLE", "UNRELIABLE"}
 
 
+def test_noisy_sustained_degradation_does_not_become_stable():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    inputs = [
+        diagnostic_health(
+            72.0 + (8.0 if index % 2 else -5.0),
+            start + timedelta(hours=index),
+            "PHYSICAL_FAULT",
+        )
+        for index in range(10)
+    ]
+
+    degradation = estimate_degradation(inputs)
+    rul = estimate_rul(inputs, degradation)
+
+    assert degradation.overallDegradation >= 0.1
+    assert degradation.trend == "DEGRADING"
+    assert rul.status == "UNRELIABLE"
+    assert rul.rulHours is None
+
+
 def test_noisy_trajectory_has_lower_confidence_than_clean_trajectory():
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
     clean = [diagnostic_health(95.0 - index, start + timedelta(hours=index)) for index in range(10)]

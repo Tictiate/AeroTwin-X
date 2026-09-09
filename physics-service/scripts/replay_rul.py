@@ -3,10 +3,10 @@
 
 import argparse
 import csv
-from datetime import timedelta
 import json
 from pathlib import Path
 import sys
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -63,18 +63,25 @@ def diagnostic_input(row: dict[str, object]) -> HealthDiagnosticInput:
     )
 
 
-def replay(path: Path, output_dir: Path) -> dict[str, object]:
-    frame = pd.read_csv(path)
-    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
-    scenario = str(frame["faultType"].iloc[0])
-    health_history: list[HealthDiagnosticInput] = []
-    degradation_history: list[DiagnosticHealthInput] = []
-    rows: list[dict[str, object]] = []
-    for raw in frame.to_dict(orient="records"):
+@dataclass
+class MissionReplayState:
+    mission_id: str | None = None
+    health_history: list[HealthDiagnosticInput] = field(default_factory=list)
+    degradation_history: list[DiagnosticHealthInput] = field(default_factory=list)
+
+    def reset_for(self, mission_id: str) -> None:
+        if self.mission_id == mission_id:
+            return
+        self.mission_id = mission_id
+        self.health_history.clear()
+        self.degradation_history.clear()
+
+    def process(self, raw: dict[str, object]) -> dict[str, object]:
+        self.reset_for(str(raw["missionId"]))
         current = diagnostic_input(raw)
         health = evaluate_health(HealthEvaluateRequest(
             current=current,
-            history=health_history[-60:],
+            history=self.health_history[-60:],
         ))
         current_with_health = DiagnosticHealthInput(
             telemetry=current.telemetry,
@@ -84,10 +91,11 @@ def replay(path: Path, output_dir: Path) -> dict[str, object]:
             health=health,
             runId=current.runId,
         )
-        degradation_history.append(current_with_health)
-        degradation = estimate_degradation(degradation_history[-60:])
-        rul = estimate_rul(degradation_history[-60:], degradation)
-        rows.append({
+        self.degradation_history.append(current_with_health)
+        degradation = estimate_degradation(self.degradation_history[-60:])
+        rul = estimate_rul(self.degradation_history[-60:], degradation)
+        self.health_history.append(current)
+        return {
             "timestamp": raw["timestamp"],
             "engineId": raw["engineId"],
             "missionId": raw["missionId"],
@@ -102,8 +110,29 @@ def replay(path: Path, output_dir: Path) -> dict[str, object]:
             "rulStatus": rul.status,
             "diagnosticType": health.diagnosticType,
             "affectedSensor": health.affectedSensor or "",
-        })
-        health_history.append(current)
+        }
+
+
+def replay_rows(frame: pd.DataFrame) -> list[dict[str, object]]:
+    ordered = pd.concat(
+        [mission.sort_values("timestamp", kind="stable")
+         for _, mission in frame.groupby("missionId", sort=False)],
+        ignore_index=True,
+    )
+    state = MissionReplayState()
+    return [state.process(raw) for raw in ordered.to_dict(orient="records")]
+
+
+def replay(path: Path, output_dir: Path) -> dict[str, object]:
+    frame = pd.read_csv(path)
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
+    frame = pd.concat(
+        [mission.sort_values("timestamp", kind="stable")
+         for _, mission in frame.groupby("missionId", sort=False)],
+        ignore_index=True,
+    )
+    scenario = str(frame["faultType"].iloc[0])
+    rows = replay_rows(frame)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{path.stem}_rul.csv"
     with output_path.open("w", newline="") as target:

@@ -96,7 +96,9 @@ class Misfire(FaultModel):
     fault_type = FaultType.MISFIRE
 
     def apply(self, healthy, prediction, severity, elapsed_seconds, rng):
-        event_probability = min(0.9, 0.05 + (0.75 * severity))
+        if severity <= 0.0:
+            return healthy
+        event_probability = min(0.9, 0.75 * severity)
         event = rng.random() < event_probability
         if not event:
             return healthy

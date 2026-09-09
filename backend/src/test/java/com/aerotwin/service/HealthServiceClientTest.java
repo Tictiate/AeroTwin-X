@@ -18,6 +18,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -30,6 +31,8 @@ class HealthServiceClientTest {
         HealthServiceClient client = new HealthServiceClient(builder, "http://health.test");
         server.expect(requestTo("http://health.test/health/evaluate"))
                 .andExpect(method(POST))
+                .andExpect(jsonPath("$.current.prediction.expectedRpm").value(3500.0))
+                .andExpect(jsonPath("$.current.physicsPrediction").doesNotExist())
                 .andRespond(withSuccess("""
                         {
                           "overallHealth": 88.0,

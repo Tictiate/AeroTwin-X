@@ -70,6 +70,42 @@ def test_misfire_severity_increases_rpm_variability_and_vibration():
     assert mean(row["vibrationResidual"] for row in high) > mean(row["vibrationResidual"] for row in low)
 
 
+def test_zero_severity_misfire_has_no_injected_events():
+    config = DatasetConfig(
+        FaultType.MISFIRE,
+        duration_seconds=300,
+        seed=42,
+        fault_start_seconds=120.0,
+    )
+    records = generate_records(config)
+    healthy = generate_records(DatasetConfig(
+        FaultType.NORMAL,
+        duration_seconds=300,
+        seed=42,
+        fault_start_seconds=120.0,
+    ))
+    compared_fields = (
+        "timestamp", "altitude", "ambientTemperature", "throttle", "load", "rpm", "egt",
+        "cht", "oilTemperature", "oilPressure", "fuelFlow", "vibration", "batteryVoltage",
+        "expectedRpm", "expectedEgt", "expectedCht", "expectedOilTemperature", "expectedOilPressure",
+        "expectedFuelFlow", "expectedVibration", "rpmResidual", "egtResidual", "chtResidual",
+        "oilTemperatureResidual", "oilPressureResidual", "fuelFlowResidual", "vibrationResidual",
+    )
+    assert [tuple(record[field] for field in compared_fields) for record in records[:120]] == [
+        tuple(record[field] for field in compared_fields) for record in healthy[:120]
+    ]
+
+
+def test_misfire_activity_increases_with_severity():
+    low = active_records(FaultType.MISFIRE, 0.2)
+    high = active_records(FaultType.MISFIRE, 0.8)
+
+    low_events = sum(row["vibrationResidual"] != 0.0 for row in low)
+    high_events = sum(row["vibrationResidual"] != 0.0 for row in high)
+
+    assert high_events > low_events
+
+
 def test_sensor_drift_changes_observed_sensors_but_not_healthy_prediction():
     normal = active_records(FaultType.NORMAL, 0.0)
     drift = active_records(FaultType.SENSOR_DRIFT, 0.8)
