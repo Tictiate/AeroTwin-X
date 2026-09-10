@@ -4,6 +4,16 @@
 
 ---
 
+## 🚀 Live Demo
+
+**AeroTwin-X Public Demo:** [https://aerotwin-x-rutvij2109s-projects.vercel.app](https://aerotwin-x-rutvij2109s-projects.vercel.app)
+
+This is a **real deployment of the actual AeroTwin-X dashboard** — the same React/TypeScript code that runs locally, built and hosted on Vercel — not a screenshot or a mockup. It is honestly labeled as a **frontend demonstration**, not a fully live end-to-end demo: the Java/Spring Boot and Python/FastAPI services that drive telemetry, physics, and AI diagnosis run locally (see [Quick Start](#quick-start)) and are not currently hosted on a public backend. When opened without a local backend running, the dashboard correctly shows honest "connecting" / "unavailable" states on every panel — it never fabricates telemetry, health, or diagnosis data. This is the same graceful-degradation behavior the local system uses whenever a downstream service is unreachable, verified live rather than assumed.
+
+**To see it fully live** (real telemetry, real anomaly detection, real fault injection), run all three services locally per [Quick Start](#quick-start) and open `http://localhost:5173` instead.
+
+---
+
 ## Overview
 
 Small unmanned aircraft engines rarely carry the instrumentation, telemetry history, or maintenance infrastructure that crewed aviation relies on, yet an undetected fuel, lubrication, or combustion fault can still end a mission. AeroTwin-X is a Smart India Hackathon prototype that explores how far a **reduced-order physics model + residual analysis + machine learning** pipeline can go toward giving a ground operator an honest, real-time answer to three questions: *is the engine healthy, what is wrong if it isn't, and can the current mission still be completed safely?*
