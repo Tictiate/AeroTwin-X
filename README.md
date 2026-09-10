@@ -8,9 +8,11 @@
 
 **AeroTwin-X Public Demo:** [https://aerotwin-x-rutvij2109s-projects.vercel.app](https://aerotwin-x-rutvij2109s-projects.vercel.app)
 
-This is a **real deployment of the actual AeroTwin-X dashboard** — the same React/TypeScript code that runs locally, built and hosted on Vercel — not a screenshot or a mockup. It is honestly labeled as a **frontend demonstration**, not a fully live end-to-end demo: the Java/Spring Boot and Python/FastAPI services that drive telemetry, physics, and AI diagnosis run locally (see [Quick Start](#quick-start)) and are not currently hosted on a public backend. When opened without a local backend running, the dashboard correctly shows honest "connecting" / "unavailable" states on every panel — it never fabricates telemetry, health, or diagnosis data. This is the same graceful-degradation behavior the local system uses whenever a downstream service is unreachable, verified live rather than assumed.
+**This is a fully live, end-to-end public deployment** — not a frontend-only showcase. The React dashboard (Vercel) talks to a real Java/Spring Boot backend and a real Python/FastAPI physics+ML service (both on Render), over real REST and a real `wss://` WebSocket. Every panel — telemetry, physics twin, AI diagnosis, sensor isolation, health, degradation/RUL, mission what-if, and live fault injection — is backed by the actual running pipeline, verified live in a real browser: all 4 fault scenarios, NORMAL reset, and Mission What-If were each exercised against the public URL and produced the same honest behavior as the local system (including FINDING-3's known sensor-isolation gap, which renders gracefully rather than being hidden).
 
-**To see it fully live** (real telemetry, real anomaly detection, real fault injection), run all three services locally per [Quick Start](#quick-start) and open `http://localhost:5173` instead.
+Backend services run on Render's free tier and may briefly cold-start after a period of inactivity — in practice, a 16-minute-idle test showed no noticeable delay (sub-second responses), but this isn't guaranteed on every visit. If a panel briefly shows "connecting," give it a few seconds.
+
+To run everything locally instead (e.g. to modify and test changes), see [Quick Start](#quick-start).
 
 ---
 
