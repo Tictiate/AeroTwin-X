@@ -23,7 +23,8 @@ public class CorsConfig {
                 registry.addMapping("/api/**")
                         .allowedOrigins(
                                 "http://localhost:5173",   // Vite dev server
-                                "http://localhost:3000"    // alternate dev origin
+                                "http://localhost:3000",   // alternate dev origin
+                                "https://aerotwin-x-rutvij2109s-projects.vercel.app" // public Vercel frontend
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
