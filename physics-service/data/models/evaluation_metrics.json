@@ -1,0 +1,478 @@
+{
+  "modelVersion": "phase4-v1",
+  "dataset": {
+    "rows": 7500,
+    "missions": 25,
+    "classDistribution": {
+      "INJECTOR_DEGRADATION": 1500,
+      "LUBRICATION_DEGRADATION": 1500,
+      "MISFIRE": 1500,
+      "NORMAL": 1500,
+      "SENSOR_DRIFT": 1500
+    },
+    "splitMissions": {
+      "train": 15,
+      "validation": 5,
+      "test": 5
+    },
+    "splitRows": {
+      "train": 4500,
+      "validation": 1500,
+      "test": 1500
+    }
+  },
+  "featureCount": 88,
+  "features": [
+    "rpm",
+    "egt",
+    "cht",
+    "oilTemperature",
+    "oilPressure",
+    "fuelFlow",
+    "vibration",
+    "batteryVoltage",
+    "altitude",
+    "ambientTemperature",
+    "throttle",
+    "load",
+    "expectedRpm",
+    "expectedEgt",
+    "expectedCht",
+    "expectedOilTemperature",
+    "expectedOilPressure",
+    "expectedFuelFlow",
+    "expectedVibration",
+    "rpmResidual",
+    "egtResidual",
+    "chtResidual",
+    "oilTemperatureResidual",
+    "oilPressureResidual",
+    "fuelFlowResidual",
+    "vibrationResidual",
+    "normalizedRpmResidual",
+    "normalizedEgtResidual",
+    "normalizedChtResidual",
+    "normalizedOilTemperatureResidual",
+    "normalizedOilPressureResidual",
+    "normalizedFuelFlowResidual",
+    "normalizedVibrationResidual",
+    "rpmResidual_rollingMean_5",
+    "rpmResidual_rollingStd_5",
+    "rpmResidual_rollingMaxAbs_5",
+    "rpmResidual_slope_5",
+    "egtResidual_rollingMean_5",
+    "egtResidual_rollingStd_5",
+    "egtResidual_rollingMaxAbs_5",
+    "egtResidual_slope_5",
+    "chtResidual_rollingMean_5",
+    "chtResidual_rollingStd_5",
+    "chtResidual_rollingMaxAbs_5",
+    "chtResidual_slope_5",
+    "oilTemperatureResidual_rollingMean_5",
+    "oilTemperatureResidual_rollingStd_5",
+    "oilTemperatureResidual_rollingMaxAbs_5",
+    "oilTemperatureResidual_slope_5",
+    "oilPressureResidual_rollingMean_5",
+    "oilPressureResidual_rollingStd_5",
+    "oilPressureResidual_rollingMaxAbs_5",
+    "oilPressureResidual_slope_5",
+    "fuelFlowResidual_rollingMean_5",
+    "fuelFlowResidual_rollingStd_5",
+    "fuelFlowResidual_rollingMaxAbs_5",
+    "fuelFlowResidual_slope_5",
+    "vibrationResidual_rollingMean_5",
+    "vibrationResidual_rollingStd_5",
+    "vibrationResidual_rollingMaxAbs_5",
+    "vibrationResidual_slope_5",
+    "rpm_rollingMean_5",
+    "rpm_rollingStd_5",
+    "rpm_rollingMaxAbs_5",
+    "rpm_slope_5",
+    "vibration_rollingMean_5",
+    "vibration_rollingStd_5",
+    "vibration_rollingMaxAbs_5",
+    "vibration_slope_5",
+    "egt_rollingMean_5",
+    "egt_rollingStd_5",
+    "egt_rollingMaxAbs_5",
+    "egt_slope_5",
+    "oilPressure_rollingMean_5",
+    "oilPressure_rollingStd_5",
+    "oilPressure_rollingMaxAbs_5",
+    "oilPressure_slope_5",
+    "fuelFlow_rollingMean_5",
+    "fuelFlow_rollingStd_5",
+    "fuelFlow_rollingMaxAbs_5",
+    "fuelFlow_slope_5",
+    "missionPhase_IDLE",
+    "missionPhase_TAKEOFF",
+    "missionPhase_CLIMB",
+    "missionPhase_CRUISE",
+    "missionPhase_LOITER",
+    "missionPhase_DESCENT",
+    "missionPhase_LANDING"
+  ],
+  "anomaly": {
+    "threshold": 0.6124126623416972,
+    "thresholdSelection": "95th percentile of healthy validation anomaly scores",
+    "validation": {
+      "precision": 0.8673469387755102,
+      "recall": 0.07083333333333333,
+      "f1": 0.13097072419106318,
+      "healthyFalsePositiveRate": 0.043333333333333335,
+      "healthyFalseAlarmCount": 13,
+      "sampleCount": 1500,
+      "scoreMean": 0.4859256232619771,
+      "scoreMax": 0.7634898806095312
+    },
+    "test": {
+      "precision": 0.7959183673469388,
+      "recall": 0.065,
+      "f1": 0.12018489984591679,
+      "healthyFalsePositiveRate": 0.06666666666666667,
+      "healthyFalseAlarmCount": 20,
+      "sampleCount": 1500,
+      "scoreMean": 0.4865863077139343,
+      "scoreMax": 0.7615558268432848
+    },
+    "detectionLeadTime": {
+      "persistenceSamples": 3,
+      "missionsEvaluated": 4,
+      "missionsDetected": 4,
+      "meanLeadTimeSeconds": 217.25,
+      "minLeadTimeSeconds": 210.0
+    }
+  },
+  "classification": {
+    "accuracy": 0.6266666666666667,
+    "macroPrecision": 0.706562458730768,
+    "macroRecall": 0.6266666666666666,
+    "macroF1": 0.6423424889655495,
+    "confusionMatrix": [
+      [
+        180,
+        0,
+        120,
+        0,
+        0
+      ],
+      [
+        0,
+        180,
+        120,
+        0,
+        0
+      ],
+      [
+        66,
+        0,
+        180,
+        5,
+        49
+      ],
+      [
+        80,
+        0,
+        0,
+        171,
+        49
+      ],
+      [
+        66,
+        0,
+        0,
+        5,
+        229
+      ]
+    ],
+    "classificationReport": {
+      "NORMAL": {
+        "precision": 0.45918367346938777,
+        "recall": 0.6,
+        "f1-score": 0.5202312138728323,
+        "support": 300.0
+      },
+      "INJECTOR_DEGRADATION": {
+        "precision": 1.0,
+        "recall": 0.6,
+        "f1-score": 0.75,
+        "support": 300.0
+      },
+      "LUBRICATION_DEGRADATION": {
+        "precision": 0.42857142857142855,
+        "recall": 0.6,
+        "f1-score": 0.5,
+        "support": 300.0
+      },
+      "MISFIRE": {
+        "precision": 0.9447513812154696,
+        "recall": 0.57,
+        "f1-score": 0.7110187110187111,
+        "support": 300.0
+      },
+      "SENSOR_DRIFT": {
+        "precision": 0.7003058103975535,
+        "recall": 0.7633333333333333,
+        "f1-score": 0.7304625199362041,
+        "support": 300.0
+      },
+      "accuracy": 0.6266666666666667,
+      "macro avg": {
+        "precision": 0.706562458730768,
+        "recall": 0.6266666666666666,
+        "f1-score": 0.6423424889655495,
+        "support": 1500.0
+      },
+      "weighted avg": {
+        "precision": 0.7065624587307678,
+        "recall": 0.6266666666666667,
+        "f1-score": 0.6423424889655495,
+        "support": 1500.0
+      }
+    }
+  },
+  "operatingConditions": {
+    "missionPhase": {
+      "TAKEOFF": {
+        "samples": 150,
+        "anomalyRate": 0.1,
+        "classifierAccuracy": 0.1
+      },
+      "CLIMB": {
+        "samples": 300,
+        "anomalyRate": 0.06666666666666667,
+        "classifierAccuracy": 0.13333333333333333
+      },
+      "CRUISE": {
+        "samples": 525,
+        "anomalyRate": 0.03238095238095238,
+        "classifierAccuracy": 0.6857142857142857
+      },
+      "LOITER": {
+        "samples": 225,
+        "anomalyRate": 0.07111111111111111,
+        "classifierAccuracy": 1.0
+      },
+      "DESCENT": {
+        "samples": 195,
+        "anomalyRate": 0.005128205128205128,
+        "classifierAccuracy": 1.0
+      },
+      "LANDING": {
+        "samples": 105,
+        "anomalyRate": 0.2761904761904762,
+        "classifierAccuracy": 1.0
+      }
+    },
+    "altitudeBand": {
+      "low": {
+        "samples": 102,
+        "anomalyRate": 0.18627450980392157,
+        "classifierAccuracy": 0.43137254901960786
+      },
+      "mid": {
+        "samples": 651,
+        "anomalyRate": 0.0706605222734255,
+        "classifierAccuracy": 0.6021505376344086
+      },
+      "high": {
+        "samples": 747,
+        "anomalyRate": 0.04417670682730924,
+        "classifierAccuracy": 0.6746987951807228
+      }
+    }
+  },
+  "ablation": {
+    "raw": {
+      "accuracy": 0.626,
+      "macroPrecision": 0.7052430697665988,
+      "macroRecall": 0.626,
+      "macroF1": 0.6419616636311265,
+      "confusionMatrix": [
+        [
+          180,
+          0,
+          120,
+          0,
+          0
+        ],
+        [
+          0,
+          180,
+          120,
+          0,
+          0
+        ],
+        [
+          67,
+          0,
+          180,
+          6,
+          47
+        ],
+        [
+          81,
+          0,
+          0,
+          172,
+          47
+        ],
+        [
+          67,
+          0,
+          0,
+          6,
+          227
+        ]
+      ],
+      "classificationReport": {
+        "NORMAL": {
+          "precision": 0.45569620253164556,
+          "recall": 0.6,
+          "f1-score": 0.5179856115107914,
+          "support": 300.0
+        },
+        "INJECTOR_DEGRADATION": {
+          "precision": 1.0,
+          "recall": 0.6,
+          "f1-score": 0.75,
+          "support": 300.0
+        },
+        "LUBRICATION_DEGRADATION": {
+          "precision": 0.42857142857142855,
+          "recall": 0.6,
+          "f1-score": 0.5,
+          "support": 300.0
+        },
+        "MISFIRE": {
+          "precision": 0.9347826086956522,
+          "recall": 0.5733333333333334,
+          "f1-score": 0.7107438016528925,
+          "support": 300.0
+        },
+        "SENSOR_DRIFT": {
+          "precision": 0.7071651090342679,
+          "recall": 0.7566666666666667,
+          "f1-score": 0.7310789049919485,
+          "support": 300.0
+        },
+        "accuracy": 0.626,
+        "macro avg": {
+          "precision": 0.7052430697665988,
+          "recall": 0.626,
+          "f1-score": 0.6419616636311265,
+          "support": 1500.0
+        },
+        "weighted avg": {
+          "precision": 0.7052430697665989,
+          "recall": 0.626,
+          "f1-score": 0.6419616636311265,
+          "support": 1500.0
+        }
+      }
+    },
+    "residual": {
+      "accuracy": 0.6273333333333333,
+      "macroPrecision": 0.7349440469012487,
+      "macroRecall": 0.6273333333333333,
+      "macroF1": 0.6486005458840319,
+      "confusionMatrix": [
+        [
+          207,
+          0,
+          93,
+          0,
+          0
+        ],
+        [
+          27,
+          180,
+          93,
+          0,
+          0
+        ],
+        [
+          92,
+          0,
+          180,
+          0,
+          28
+        ],
+        [
+          106,
+          0,
+          0,
+          166,
+          28
+        ],
+        [
+          92,
+          0,
+          0,
+          0,
+          208
+        ]
+      ],
+      "classificationReport": {
+        "NORMAL": {
+          "precision": 0.3950381679389313,
+          "recall": 0.69,
+          "f1-score": 0.5024271844660194,
+          "support": 300.0
+        },
+        "INJECTOR_DEGRADATION": {
+          "precision": 1.0,
+          "recall": 0.6,
+          "f1-score": 0.75,
+          "support": 300.0
+        },
+        "LUBRICATION_DEGRADATION": {
+          "precision": 0.4918032786885246,
+          "recall": 0.6,
+          "f1-score": 0.5405405405405406,
+          "support": 300.0
+        },
+        "MISFIRE": {
+          "precision": 1.0,
+          "recall": 0.5533333333333333,
+          "f1-score": 0.7124463519313304,
+          "support": 300.0
+        },
+        "SENSOR_DRIFT": {
+          "precision": 0.7878787878787878,
+          "recall": 0.6933333333333334,
+          "f1-score": 0.7375886524822695,
+          "support": 300.0
+        },
+        "accuracy": 0.6273333333333333,
+        "macro avg": {
+          "precision": 0.7349440469012487,
+          "recall": 0.6273333333333333,
+          "f1-score": 0.6486005458840319,
+          "support": 1500.0
+        },
+        "weighted avg": {
+          "precision": 0.7349440469012487,
+          "recall": 0.6273333333333333,
+          "f1-score": 0.6486005458840319,
+          "support": 1500.0
+        }
+      }
+    }
+  },
+  "hyperparameters": {
+    "isolationForest": {
+      "nEstimators": 160,
+      "randomState": 42,
+      "healthyTrainingOnly": true
+    },
+    "xgboost": {
+      "nEstimators": 120,
+      "maxDepth": 3,
+      "learningRate": 0.05,
+      "subsample": 0.85,
+      "colsampleBytree": 0.85,
+      "randomState": 42
+    }
+  }
+}

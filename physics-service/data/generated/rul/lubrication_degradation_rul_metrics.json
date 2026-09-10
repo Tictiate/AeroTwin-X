@@ -1,0 +1,10 @@
+{
+  "scenario": "LUBRICATION_DEGRADATION",
+  "samples": 1500,
+  "output": "data\\generated\\rul\\lubrication_degradation_rul.csv",
+  "physicalGroundTruthSamples": 600,
+  "maeHours": 2.9927472222222224,
+  "rmseHours": 26.090268901909987,
+  "sensorFaultSamples": 0,
+  "sensorFaultRulStatusCounts": {}
+}

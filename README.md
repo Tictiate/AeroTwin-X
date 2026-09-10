@@ -271,12 +271,16 @@ source .venv/bin/activate
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Trained model artifacts live under `data/models/` (gitignored). If they're missing on a fresh clone, `/ml/analyze` returns `503 ml-unavailable` until you generate them once:
+Trained model artifacts (`data/models/`) and the generated training datasets/RUL replay output (`data/generated/`) are **committed to this repository** — a fresh clone works immediately, with no generation step required before first run.
+
+The deterministic generation pipeline that produced them is still here and still works, for anyone who wants to reproduce or regenerate them (e.g. after a genuine training-pipeline change):
 
 ```sh
 python scripts/generate_dataset.py --scenario ALL --duration-seconds 300 --runs-per-scenario 5 --seed 42 --output-dir data/generated
 python -m app.ml.training --dataset data/generated --artifacts data/models --seed 42
 ```
+
+Re-running this with the same seed reproduces the committed artifacts exactly (verified byte-for-byte identical `.joblib` files) — it is not required, only available.
 
 ### 2. Start the Java backend
 
@@ -343,7 +347,8 @@ physics-service/          Python/FastAPI service — physics, ML, health/degrada
     simulation/               Fault models used by both the offline generator and live injection
   scripts/                   Dataset generation, training, offline replay
   tests/                     74 pytest tests
-  data/                      generated/ (datasets) and models/ (trained artifacts) — both gitignored
+  data/                      generated/ (datasets + RUL replay output) and models/ (trained
+                             artifacts) — committed, reproducible via scripts/ above
 
 frontend/                 React/TypeScript operator dashboard
   src/components/            One component per dashboard panel

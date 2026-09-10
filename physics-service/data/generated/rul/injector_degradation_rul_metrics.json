@@ -1,0 +1,10 @@
+{
+  "scenario": "INJECTOR_DEGRADATION",
+  "samples": 1500,
+  "output": "data\\generated\\rul\\injector_degradation_rul.csv",
+  "physicalGroundTruthSamples": 600,
+  "maeHours": 9.332872222222223,
+  "rmseHours": 78.75143655064736,
+  "sensorFaultSamples": 0,
+  "sensorFaultRulStatusCounts": {}
+}

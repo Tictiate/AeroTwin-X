@@ -1,0 +1,10 @@
+{
+  "scenario": "NORMAL",
+  "samples": 1500,
+  "output": "data\\generated\\rul\\healthy_missions_rul.csv",
+  "physicalGroundTruthSamples": 0,
+  "maeHours": null,
+  "rmseHours": null,
+  "sensorFaultSamples": 0,
+  "sensorFaultRulStatusCounts": {}
+}

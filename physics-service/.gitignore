@@ -1,8 +1,3 @@
 .venv/
 __pycache__/
 .pytest_cache/
-data/generated/*.csv
-data/models/*.joblib
-data/models/*.json
-data/generated/rul/*.csv
-data/generated/rul/*.json

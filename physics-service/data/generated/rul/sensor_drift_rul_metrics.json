@@ -1,0 +1,14 @@
+{
+  "scenario": "SENSOR_DRIFT",
+  "samples": 1500,
+  "output": "data\\generated\\rul\\sensor_drift_rul.csv",
+  "physicalGroundTruthSamples": 0,
+  "maeHours": null,
+  "rmseHours": null,
+  "sensorFaultSamples": 1500,
+  "sensorFaultRulStatusCounts": {
+    "UNRELIABLE": 900,
+    "STABLE": 580,
+    "INSUFFICIENT_HISTORY": 20
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "scenario": "MISFIRE",
+  "samples": 1500,
+  "output": "data\\generated\\rul\\misfire_rul.csv",
+  "physicalGroundTruthSamples": 565,
+  "maeHours": 0.34994542772861353,
+  "rmseHours": 1.5491877855343048,
+  "sensorFaultSamples": 0,
+  "sensorFaultRulStatusCounts": {}
+}
