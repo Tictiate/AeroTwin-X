@@ -4,7 +4,7 @@
 
 - **Audit date:** 2026-09-09 (full repo audit + BUG-1 fix)
 - **Last updated:** 2026-09-10 (overnight sprint: FINDING-5 secondary contributors quantified/closed as document-only; BUG-3 (WS timestamp) FIXED; new sensor-isolation false-positive bug found and FIXED; README demo-startup gap fixed; full live fault-sequence + recovery re-verified; anomaly threshold unchanged throughout)
-- **Auditor/Developer:** Rutvij (taking over from Ishaan)
+- **Auditor/Developer:** AeroTwin-X engineering team
 - **Repo root:** `E:\projectsN\AeroTwin-X`
 - **Branch:** `main` @ `904dabe` ("Mid-dev phase 9")
 - **Method:** Live code inspection + fresh environment build + live running services (Java on :8080, Python on :8000, and as of session 2, the frontend dev server on :5173) + full test suites executed, not assumed.
