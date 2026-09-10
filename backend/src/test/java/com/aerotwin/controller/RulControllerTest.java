@@ -9,6 +9,7 @@ import com.aerotwin.model.PhysicsResidual;
 import com.aerotwin.model.RulEstimate;
 import com.aerotwin.model.Telemetry;
 import com.aerotwin.service.DiagnosticService;
+import com.aerotwin.service.TwinService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -31,6 +32,9 @@ class RulControllerTest {
 
     @MockBean
     private DiagnosticService diagnosticService;
+
+    @MockBean
+    private TwinService twinService;
 
     @Test
     void returnsCurrentRul() throws Exception {

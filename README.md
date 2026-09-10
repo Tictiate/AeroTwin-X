@@ -3,6 +3,73 @@
 Physics-Informed Adaptive Digital Twin for Predictive Health Monitoring
 and Mission Reliability of MALE UAV Piston Engines.
 
+## Quick Start (current system, all phases)
+
+The system today is well beyond the Phase 1-6 walkthrough below (a frontend, live
+fault injection, mission simulation, and ML artifacts all exist). This section is
+the accurate, current startup procedure; the phase-by-phase sections further down
+remain as a build history and endpoint reference, not a substitute for this.
+
+**Three terminals: Java backend, Python physics service, frontend.**
+
+1. **Python physics service** — a `.venv` already exists in `physics-service/` with
+   all dependencies installed (`fastapi`, `uvicorn`, `xgboost`, `shap`, `scikit-learn`,
+   etc.); do not recreate it unless it is missing or broken.
+
+   ```sh
+   cd physics-service
+   # Windows:
+   .venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000
+   # macOS/Linux:
+   source .venv/bin/activate && python -m uvicorn main:app --host 0.0.0.0 --port 8000
+   ```
+
+   `/ml/analyze` (and therefore `/api/diagnostics/current`) requires trained model
+   artifacts under `data/models/` — these are gitignored, so a **fresh clone has none**
+   and will get `503 ml-unavailable` until they exist. Generate them once:
+
+   ```sh
+   python scripts/generate_dataset.py --scenario ALL --duration-seconds 300 --runs-per-scenario 5 --seed 42 --output-dir data/generated
+   python -m app.ml.training --dataset data/generated --artifacts data/models --seed 42
+   ```
+
+2. **Java backend:**
+
+   ```sh
+   cd backend
+   # Windows (PowerShell):
+   .\mvnw.cmd spring-boot:run
+   # macOS/Linux:
+   ./mvnw spring-boot:run
+   ```
+
+3. **Frontend** (not covered anywhere else in this file — added session 2, see
+   `AEROTWIN_PROJECT_MASTER.md` §11):
+
+   ```sh
+   cd frontend
+   npm install   # first time only, node_modules/ is gitignored
+   npm run dev   # http://localhost:5173
+   ```
+
+   Defaults to `http://localhost:8080` / `ws://localhost:8080/ws/telemetry` for the
+   backend — override with `VITE_API_BASE_URL` / `VITE_WS_URL` if the backend runs
+   elsewhere.
+
+**Live fault demo control** (added session 4, not in the phase walkthrough below):
+
+```sh
+curl -X POST http://localhost:8080/api/simulator/fault -H "Content-Type: application/json" \
+  -d '{"faultType":"LUBRICATION_DEGRADATION","severity":0.9}'
+# faultType: NORMAL | INJECTOR_DEGRADATION | LUBRICATION_DEGRADATION | MISFIRE | SENSOR_DRIFT
+# faultType "NORMAL" (or omitted) resets to healthy. severity is optional (0-1);
+# omit it to use the natural ~120s onset + ramp schedule instead of an instant jump.
+```
+
+There is a real ~120s onset delay by design (matches the offline training data's
+fault-onset timing) — a demo needs to let a fault run for a while before checking
+the diagnosis panel, not check it immediately after activating.
+
 ## Phase 1 Architecture
 
 The Phase 1 prototype contains two services:

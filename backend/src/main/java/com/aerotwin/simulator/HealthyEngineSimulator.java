@@ -1,108 +1,138 @@
 package com.aerotwin.simulator;
 
+import com.aerotwin.model.PhysicsPrediction;
 import com.aerotwin.model.Telemetry;
+import com.aerotwin.service.PhysicsServiceClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
+/**
+ * Generates the live "healthy" telemetry baseline by delegating to the physics service's
+ * {@code /physics/predict} — the same canonical model the offline dataset generator uses to
+ * define "healthy" (see {@code app/simulation/mission_generator.py}'s {@code
+ * next_healthy_telemetry}, which builds its healthy sample by calling {@code
+ * predict_healthy_state} and copying its output field-for-field).
+ *
+ * <p>This class previously computed its own independent reduced-order formulas. That
+ * implementation structurally diverged from the Python physics model (different RPM/EGT
+ * equations, missing mission-phase and throttle/load correction terms — see
+ * AEROTWIN_PROJECT_MASTER.md §15.5, FINDING-4), which meant live telemetry occupied a
+ * different residual distribution than the one the ML models were trained on, even when
+ * perfectly healthy. Delegating to the same canonical physics model the offline generator
+ * uses removes that divergence by construction: Python remains the single source of truth
+ * for healthy engine physics; Java owns only simulation orchestration, state, and timing.
+ *
+ * <p>{@code expectedCht}/{@code expectedOilTemperature} are themselves one-step first-order
+ * filters anchored to the "previous" telemetry passed into {@code /physics/predict}
+ * (see {@code physics-service/app/physics/thermal.py}). To keep that filter continuous
+ * tick-to-tick — mirroring how the offline generator threads {@code previous.model_copy(...)}
+ * forward — this simulator threads its own previous CHT/oil-temperature forward as instance
+ * state, exactly as it did before, just now sourced from Python's response instead of a
+ * locally-computed target.
+ */
 @Component
 public class HealthyEngineSimulator implements EngineSimulator {
 
-    // First-order state variables
-    private double currentCht = 15.0;
-    private double currentOilTemp = 15.0;
+    private static final Logger LOGGER = LoggerFactory.getLogger(HealthyEngineSimulator.class);
 
-    // Constants for reduced-order model
-    private static final double DISPLACEMENT_L = 2.0;
-    private static final double VOLUMETRIC_EFFICIENCY = 0.8;
-    private static final double R_SPECIFIC_AIR = 287.05; // J/(kg·K)
-    private static final double SEA_LEVEL_PRESSURE_PA = 101325.0;
-    private static final double FUEL_DENSITY_KG_L = 0.72;
-    
-    // Engine parameters
-    private static final double IDLE_RPM = 1000.0;
-    private static final double MAX_RPM = 6000.0;
+    private final PhysicsServiceClient physicsServiceClient;
+
+    private double previousCht;
+    private double previousOilTemperature;
+    private boolean seeded = false;
+
+    private Telemetry lastKnownHealthy;
+    private volatile boolean healthyBaselineFresh = true;
+
+    public HealthyEngineSimulator(PhysicsServiceClient physicsServiceClient) {
+        this.physicsServiceClient = physicsServiceClient;
+    }
 
     @Override
     public Telemetry generateNextTick(SimulationState state, String engineId, String missionId) {
         Instant now = Instant.now();
-        double timeSec = state.getElapsedTimeSeconds();
-
-        // 1. RPM Calculation (throttle increases RPM, load drops it slightly)
-        double targetRpm = IDLE_RPM + state.getThrottle() * (MAX_RPM - IDLE_RPM) - state.getLoad() * 500.0;
-        double rpm = Math.max(IDLE_RPM, targetRpm);
-        // Add tiny deterministic variation
-        rpm += Math.sin(timeSec * 2.0) * 10.0;
-
-        // Prototype assumption: pressure follows a simple exponential atmosphere and
-        // density follows the ideal gas law. This is not a validated engine model.
-        double tempK = state.getAmbientTemperature() + 273.15;
-        double pressurePa = SEA_LEVEL_PRESSURE_PA * Math.exp(-0.00012 * state.getAltitude());
-        double airDensityKgM3 = pressurePa / (R_SPECIFIC_AIR * tempK);
-
-        // Prototype assumption: intake airflow is displacement, RPM, and fixed
-        // volumetric efficiency. The relationships below are reduced-order proxies.
-        // Volumetric flow per hour = (RPM / 2) * (Displacement / 1000) * VE * 60
-        double volFlowM3H = (rpm / 2.0) * (DISPLACEMENT_L / 1000.0) * VOLUMETRIC_EFFICIENCY * 60.0;
-        double airFlowKgH = volFlowM3H * airDensityKgM3;
-
-        // Prototype assumption: throttle changes the commanded fuel-to-air ratio.
-        // Fuel flow is then derived from airflow rather than set independently.
-        double afr = 14.7 - state.getThrottle() * 2.0;
-        double fuelFlowKgH = airFlowKgH / afr;
-        double fuelFlowLh = fuelFlowKgH / FUEL_DENSITY_KG_L;
-
-        // Prototype assumption: fuel mass flow represents combustion heat release;
-        // EGT is a temperature proxy with a small deterministic periodic variation.
-        double heatReleaseProxy = fuelFlowKgH * 43000.0;
-        double egt = state.getAmbientTemperature() + (heatReleaseProxy / 1000.0);
-        egt += Math.sin(timeSec * 3.0) * 5.0;
-
-        // 6. CHT (Thermal inertia: follows EGT)
-        double targetCht = state.getAmbientTemperature() + (egt * 0.25);
-        // First order filter (alpha ~ 0.05 per tick assuming 1s tick)
-        currentCht += (targetCht - currentCht) * 0.05;
-
-        // Prototype assumption: oil heat input follows RPM/load and cooling improves
-        // with colder ambient air and altitude (used as an airspeed proxy).
-        double cooling = Math.max(0.2, 1.0 + state.getAltitude() / 10000.0);
-        double targetOilTemp = state.getAmbientTemperature()
-            + ((rpm * 0.015) + (state.getLoad() * 20.0)) / cooling;
-        // First order filter (alpha ~ 0.02)
-        currentOilTemp += (targetOilTemp - currentOilTemp) * 0.02;
-
-        // 8. Oil Pressure (kPa)
-        // Base pressure from oil pump driven by RPM
-        double oilPressure = 200.0 + (rpm * 0.05);
-        // Viscosity drops at high temperatures, lowering pressure
-        if (currentOilTemp > 80.0) {
-            oilPressure -= (currentOilTemp - 80.0) * 2.0;
+        if (!seeded) {
+            // Matches the offline generator's own initial seed (mission_generator.py's
+            // initial_telemetry: ambient+10 for CHT, ambient+5 for oil temperature).
+            previousCht = state.getAmbientTemperature() + 10.0;
+            previousOilTemperature = state.getAmbientTemperature() + 5.0;
+            seeded = true;
         }
-        oilPressure += Math.sin(timeSec) * 2.0; // small deterministic ripple
-        oilPressure = Math.max(50.0, oilPressure); // min bounds
 
-        // 9. Vibration (mm/s RMS)
-        // Proportional to RPM, worse at high load
-        double vibration = (rpm / 1000.0) * 1.5 + (state.getLoad() * 2.0);
-        vibration += Math.cos(timeSec * 5.0) * 0.5;
+        Telemetry context = new Telemetry(
+                now, engineId, missionId, state.getMissionPhase(),
+                state.getAltitude(), state.getAmbientTemperature(),
+                state.getThrottle(), state.getLoad(),
+                // Unused by predict_healthy_state's causal chain except cht/oilTemperature
+                // (read as the filter's "previous" anchor) — everything else here is a
+                // placeholder the Python model does not read as an input.
+                0.0, 0.0, previousCht, previousOilTemperature, 0.0, 0.0, 0.0, 14.2
+        );
 
+        try {
+            PhysicsPrediction prediction = physicsServiceClient.predict(context);
+            previousCht = prediction.expectedCht();
+            previousOilTemperature = prediction.expectedOilTemperature();
+            lastKnownHealthy = new Telemetry(
+                    now, engineId, missionId, state.getMissionPhase(),
+                    state.getAltitude(), state.getAmbientTemperature(),
+                    state.getThrottle(), state.getLoad(),
+                    prediction.expectedRpm(), prediction.expectedEgt(), prediction.expectedCht(),
+                    prediction.expectedOilTemperature(), prediction.expectedOilPressure(),
+                    prediction.expectedFuelFlow(), prediction.expectedVibration(),
+                    prediction.expectedBatteryVoltage()
+            );
+            healthyBaselineFresh = true;
+        } catch (PhysicsServiceClient.PhysicsServiceUnavailableException exception) {
+            // Deliberately do NOT recompute a healthy baseline locally — that would silently
+            // recreate the exact two-implementations divergence this class exists to remove.
+            // previousCht/previousOilTemperature are intentionally left unmodified (frozen at
+            // their last successful value), and the last known healthy telemetry is reused
+            // with a refreshed timestamp so /api/telemetry/current stays available (matching
+            // its existing, documented zero-fault-tolerance-required guarantee) without
+            // fabricating new physics.
+            LOGGER.warn("Physics service unavailable; retaining last known healthy baseline: {}",
+                    exception.getMessage());
+            healthyBaselineFresh = false;
+            if (lastKnownHealthy == null) {
+                lastKnownHealthy = bootstrapTelemetry(state, engineId, missionId, now);
+            } else {
+                lastKnownHealthy = withRefreshedTimestamp(lastKnownHealthy, now);
+            }
+        }
+
+        return lastKnownHealthy;
+    }
+
+    @Override
+    public boolean isHealthyBaselineFresh() {
+        return healthyBaselineFresh;
+    }
+
+    /**
+     * Used only if the physics service has never once succeeded (e.g. down since backend
+     * startup) — matches the offline generator's own cold-start seed
+     * (mission_generator.py's initial_telemetry) rather than inventing new values.
+     */
+    private Telemetry bootstrapTelemetry(SimulationState state, String engineId, String missionId, Instant now) {
+        double ambient = state.getAmbientTemperature();
         return new Telemetry(
-                now,
-                engineId,
-                missionId,
-                state.getMissionPhase(),
-                state.getAltitude(),
-                state.getAmbientTemperature(),
-                state.getThrottle(),
-                state.getLoad(),
-                rpm,
-                egt,
-                currentCht,
-                currentOilTemp,
-                oilPressure,
-                fuelFlowLh,
-                vibration,
-                14.2 // constant battery voltage for now
+                now, engineId, missionId, state.getMissionPhase(),
+                state.getAltitude(), ambient, state.getThrottle(), state.getLoad(),
+                1000.0, ambient + 20.0, ambient + 10.0, ambient + 5.0,
+                240.0, 2.0, 1.5, 14.2
+        );
+    }
+
+    private Telemetry withRefreshedTimestamp(Telemetry telemetry, Instant now) {
+        return new Telemetry(
+                now, telemetry.engineId(), telemetry.missionId(), telemetry.missionPhase(),
+                telemetry.altitude(), telemetry.ambientTemperature(), telemetry.throttle(), telemetry.load(),
+                telemetry.rpm(), telemetry.egt(), telemetry.cht(), telemetry.oilTemperature(),
+                telemetry.oilPressure(), telemetry.fuelFlow(), telemetry.vibration(), telemetry.batteryVoltage()
         );
     }
 }

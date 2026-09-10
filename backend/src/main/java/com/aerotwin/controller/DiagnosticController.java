@@ -1,6 +1,7 @@
 package com.aerotwin.controller;
 
 import com.aerotwin.model.TwinSnapshot;
+import com.aerotwin.service.DegradationServiceClient.DegradationServiceUnavailableException;
 import com.aerotwin.service.DiagnosticService;
 import com.aerotwin.service.MLServiceClient.MLServiceUnavailableException;
 import com.aerotwin.service.HealthServiceClient.HealthServiceUnavailableException;
@@ -30,6 +31,9 @@ public class DiagnosticController {
     public ResponseEntity<?> getCurrentDiagnostics() {
         try {
             return ResponseEntity.ok(diagnosticService.getCurrentDiagnostics());
+        } catch (DegradationServiceUnavailableException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("status", "degradation-unavailable", "message", exception.getMessage()));
         } catch (MLServiceUnavailableException exception) {
             TwinSnapshot snapshot = exception.twinSnapshot();
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)

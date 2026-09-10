@@ -183,7 +183,7 @@ def train_and_evaluate(dataset_path: Path, artifact_dir: Path, seed: int = 42) -
         "features": config.names,
         "anomaly": {
             "threshold": detector.threshold,
-            "thresholdSelection": "95th percentile of healthy validation anomaly scores",
+            "thresholdSelection": "95th percentile of healthy train-split anomaly scores",
             "validation": _anomaly_metrics(validation_frame, validation_detected, validation_scores),
             "test": _anomaly_metrics(test_frame, test_detected, test_scores),
             "detectionLeadTime": _first_sustained_detection(test_frame, test_detected),

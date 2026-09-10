@@ -206,7 +206,17 @@ def evaluate_health(request: HealthEvaluateRequest) -> HealthEvaluateResponse:
         previous_raw = sum(previous_scores[name] * weight for name, weight in HEALTH_WEIGHTS.items())
     overall = _bounded((SMOOTHING_ALPHA * raw_health) + ((1.0 - SMOOTHING_ALPHA) * previous_raw))
     model_fault = request.current.analysis.predictedFault
-    model_supports_sensor_fault = model_fault in {"NORMAL", "SENSOR_DRIFT"}
+    fault_probabilities = request.current.analysis.faultProbabilities
+    # predictedFault is gated by the separate anomaly-score threshold (it defaults to
+    # "NORMAL" whenever anomaly=False, even when the classifier itself is highly confident
+    # in a physical fault -- see AEROTWIN_PROJECT_MASTER.md FINDING-5/FINDING-4). Using it
+    # here would let a genuinely physical fault (e.g. Injector Degradation, whose anomaly
+    # gate rarely crosses) get misattributed as SENSOR_FAULT whenever the isolation
+    # heuristic below also happens to flag one channel. The classifier's own top-probability
+    # class is not gated by the anomaly threshold and is the correct signal for "does the
+    # model itself support a sensor-fault explanation."
+    classifier_top_fault = max(fault_probabilities, key=fault_probabilities.get) if fault_probabilities else model_fault
+    model_supports_sensor_fault = classifier_top_fault in {"NORMAL", "SENSOR_DRIFT"}
     if affected_sensor and sensor_confidence >= 0.6 and model_supports_sensor_fault:
         diagnostic_type = "SENSOR_FAULT"
         fault_type = None

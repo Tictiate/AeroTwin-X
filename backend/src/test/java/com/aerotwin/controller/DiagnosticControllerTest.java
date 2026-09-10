@@ -7,6 +7,7 @@ import com.aerotwin.model.PhysicsPrediction;
 import com.aerotwin.model.PhysicsResidual;
 import com.aerotwin.model.Telemetry;
 import com.aerotwin.model.TwinSnapshot;
+import com.aerotwin.service.DegradationServiceClient.DegradationServiceUnavailableException;
 import com.aerotwin.service.DiagnosticService;
 import com.aerotwin.service.MLServiceClient.MLServiceUnavailableException;
 import com.aerotwin.service.TwinService;
@@ -70,6 +71,20 @@ class DiagnosticControllerTest {
                 .andExpect(jsonPath("$.status").value("ml-unavailable"))
                 .andExpect(jsonPath("$.telemetry.engineId").value("ENG-1"))
                 .andExpect(jsonPath("$.physicsPrediction.expectedRpm").value(3500.0));
+    }
+
+    @Test
+    void reportsDegradationUnavailableAsCleanServiceUnavailableInsteadOfARaw500() throws Exception {
+        TwinSnapshot twin = snapshot();
+        DiagnosticSnapshot partial = new DiagnosticSnapshot(
+                twin.telemetry(), twin.prediction(), twin.residuals(),
+                new MLAnalysis(false, 0.5, "NORMAL", Map.of("NORMAL", 1.0), "phase4-v1", null));
+        when(diagnosticService.getCurrentDiagnostics())
+                .thenThrow(new DegradationServiceUnavailableException("Degradation service is unavailable", partial));
+
+        mockMvc.perform(get("/api/diagnostics/current"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value("degradation-unavailable"));
     }
 
     private TwinSnapshot snapshot() {

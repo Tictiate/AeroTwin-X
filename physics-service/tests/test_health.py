@@ -101,6 +101,41 @@ def test_sensor_drift_prefers_sensor_fault_and_preserves_physical_health():
     assert result.faultType is None
 
 
+def test_anomaly_gate_suppressed_physical_fault_is_not_misattributed_as_sensor_fault():
+    """Regression guard for a bug found live during the overnight sprint (2026-09-10):
+    Injector Degradation's anomaly gate rarely crosses even when the classifier itself is
+    97-98% confident (see AEROTWIN_PROJECT_MASTER.md FINDING-5), so predictedFault defaults
+    to "NORMAL" most ticks even during a real, active physical fault. Previously,
+    evaluate_health used that anomaly-gated predictedFault (not the classifier's own raw
+    faultProbabilities) to decide whether "the model supports a sensor-fault explanation" --
+    so whenever the residual-isolation heuristic also flagged one channel (as it did live,
+    for injector's fuelFlow residual and misfire's vibration residual), the result was
+    incorrectly labeled SENSOR_FAULT ("physical engine health unaffected") for what was
+    actually a real physical fault the classifier had already correctly identified.
+    """
+    rows = generate_records(DatasetConfig(
+        FaultType.INJECTOR_DEGRADATION, duration_seconds=300, seed=42, run_id=1,
+        fault_start_seconds=0.0, fixed_severity=0.8,
+    ))
+    inputs = []
+    for row in rows:
+        entry = diagnostic(row, FaultType.INJECTOR_DEGRADATION)
+        # Simulate the real live behavior: anomaly gate has NOT crossed this tick, so
+        # predictedFault defaults to NORMAL even though the classifier's own probabilities
+        # (still sent every tick) are highly confident in the real, active physical fault.
+        entry.analysis.anomaly = False
+        entry.analysis.predictedFault = "NORMAL"
+        entry.analysis.faultProbabilities = {
+            "INJECTOR_DEGRADATION": 0.978, "NORMAL": 0.001, "SENSOR_DRIFT": 0.004,
+            "LUBRICATION_DEGRADATION": 0.015, "MISFIRE": 0.002,
+        }
+        inputs.append(entry)
+
+    result = evaluate_health(HealthEvaluateRequest(current=inputs[-1], history=inputs[-5:-1]))
+
+    assert result.diagnosticType != "SENSOR_FAULT"
+
+
 def test_single_sample_deviation_does_not_trigger_sensor_fault():
     rows = generate_records(DatasetConfig(FaultType.NORMAL, duration_seconds=6, seed=42))
     inputs = [diagnostic(row, FaultType.NORMAL) for row in rows]
