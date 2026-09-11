@@ -17,11 +17,11 @@ export function Bar({
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className="bar-row">
-      <span className="label">{label}</span>
+      <span className="name">{label}</span>
       <span className="bar-track">
-        <span className={`bar-fill${tier ? ` ${tier}` : ""}`} style={{ width: `${pct}%` }} />
+        <span className="bar-fill" data-tier={tier} style={{ width: `${pct}%` }} />
       </span>
-      <span className="value">{formatValue ? formatValue(value) : value.toFixed(0)}</span>
+      <span className="num">{formatValue ? formatValue(value) : value.toFixed(0)}</span>
     </div>
   );
 }
@@ -32,14 +32,14 @@ export function DivergeBar({ label, value, limit = 1 }: { label: string; value: 
   const pct = Math.min(50, (Math.abs(clamped) / limit) * 50);
   return (
     <div className="bar-row">
-      <span className="label">{label}</span>
+      <span className="name">{label}</span>
       <span className="diverge-track">
-        <span
-          className={`diverge-fill ${value >= 0 ? "pos" : "neg"}`}
-          style={{ width: `${pct}%` }}
-        />
+        <span className={`diverge-fill ${value >= 0 ? "pos" : "neg"}`} style={{ width: `${pct}%` }} />
       </span>
-      <span className="value">{value >= 0 ? "+" : ""}{value.toFixed(2)}</span>
+      <span className="num">
+        {value >= 0 ? "+" : ""}
+        {value.toFixed(2)}
+      </span>
     </div>
   );
 }

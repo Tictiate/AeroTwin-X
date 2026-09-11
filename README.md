@@ -44,9 +44,9 @@ All of the following are implemented and live-verified in this repository (not a
 - **High-Altitude and Hot-Weather mission presets** — alternate `MissionProfile`s exercising the same physics/health/degradation pipeline at different altitude/temperature operating points
 - **Mission History / Replay** — browse the committed, deterministically-generated RUL replay trajectories for all 5 scenarios
 - **Standalone Maintenance Advisory** — a plain-language "what needs attention, why, what to do" synthesis of the existing health/degradation/RUL/diagnosis fields
-- **Live 3D digital twin visualization** — a real-time Three.js scene bound to live RPM, health, active fault, oil pressure, and vibration
-- **Live operator dashboard** (React/TypeScript) consuming all of the above in real time
-- **Graceful degraded-mode UI** — the dashboard stays honest and doesn't crash or fabricate data when a downstream service is unavailable
+- **Real-time 3D visualization of the computational twin state** — a stylized, mechanically-coherent 4-cylinder engine model (real slider-crank piston/rod kinematics, orbit/pan/zoom camera, click-to-inspect subsystems) driven by live RPM, health, active fault, oil pressure, and CHT — not a CFD simulation
+- **A six-page operator console** (React/TypeScript/React Router) — Overview, Digital Twin, Diagnostics, Reliability, Mission, History — each with one clear purpose instead of one long scrolling dashboard
+- **Graceful degraded-mode UI** — the console stays honest and doesn't crash or fabricate data when a downstream service is unavailable
 
 ## SIH 2026 Demonstration Capabilities
 
@@ -62,7 +62,7 @@ A concise map from the SIH problem statement's requirement areas to what this pr
 - **Hot-weather scenario** — a 30–45°C ambient mission preset, same mechanism
 - **Mission History / Replay** — inspect a past run's real, committed health/degradation/RUL trajectory, clearly labeled as historical
 - **Maintenance advisory** — an operator-facing "what, why, what to do" panel derived from existing outputs, not a second decision engine
-- **Live 3D twin visualization** — RPM-driven rotation, health-driven color, live-fault-driven subsystem highlighting
+- **Live 3D twin visualization** — RPM-driven crankshaft/piston kinematics, health-driven color, live-fault-driven subsystem highlighting, on its own dedicated page ([Frontend / UI Architecture](#frontend--ui-architecture))
 - **Explainability** — SHAP feature attributions for classifier decisions, shown live when the anomaly gate is open
 
 ---
@@ -140,10 +140,11 @@ A concise map from the SIH problem statement's requirement areas to what this pr
 |---|---|
 | Framework | React 18.3 + TypeScript 5.6 |
 | Build tool | Vite 5.4 |
-| Styling | Hand-written CSS (no CSS framework) |
+| Routing | React Router 6 — a persistent app shell with 6 routed pages |
+| Styling | Hand-written CSS design-token system (no CSS framework) |
 | Charts | Hand-rolled `Sparkline`/`Bar` components (no third-party charting library) |
-| 3D | Three.js + `@react-three/fiber`, for the Live Digital Twin visualization only |
-| State | React hooks (`useDiagnostics`, `useTelemetryStream`) polling REST + a live WebSocket — no external state-management library |
+| 3D | Three.js + `@react-three/fiber` + `@react-three/drei` (`OrbitControls` only), for the Digital Twin page and a compact Overview embedding |
+| State | A shared `AppDataContext` wraps `useDiagnostics`/`useTelemetryStream` (REST poll + live WebSocket) once for every page — no external state-management library |
 
 ### Communication
 
@@ -199,6 +200,27 @@ This is genuinely computed from the mission-phase-by-phase health propagation mo
 
 ---
 
+## Frontend / UI Architecture
+
+The dashboard is a **six-page operator console**, not one long scrolling page. A persistent left sidebar (a compact top bar on narrow screens) holds the navigation; a single `AppDataProvider` subscribes once to the 2s diagnostics poll, the 1 Hz WebSocket telemetry stream, and a light poll of the live simulator fault state, sharing all three across every page instead of each page re-subscribing independently.
+
+| Page | Question it answers |
+|---|---|
+| **Overview** | How is the engine doing right now? — health, a compact live 3D twin, key telemetry, mission status, one concise recommendation, and the live fault-injection control |
+| **Digital Twin** | What is the engine doing physically right now? — the full-size 3D visualization |
+| **Diagnostics** | Why does the system think something is wrong? — anomaly score, fault probabilities, SHAP explanation, physics residuals, sensor isolation, each behind progressive disclosure |
+| **Reliability** | How healthy is the engine, how is it degrading, and what should we do? — Health → Degradation → RUL → Maintenance Advisory, in that visual hierarchy |
+| **Mission** | How will this engine behave under a mission scenario? — Standard/High-Altitude/Hot-Weather presets, fault injection, and What-If comparison |
+| **History** | What happened during previous missions? — a timeline scrubber over the committed replay runs |
+
+**Digital Twin.** The 3D model is a custom, stylized-but-mechanically-coherent 4-cylinder engine built from composed Three.js primitives (cylinder blocks/heads, injectors, pistons, connecting rods, a rotating crankshaft with 4 phase-offset throws, an open-front cutaway crankcase, an oil sump, and a mounted sensor node) — not a generic shape, not an external model asset. Piston and rod motion is computed every frame from a real slider-crank formula (`pistonY(θ) = r·cosθ + √(L² − r²sin²θ)`) driven by one shared crank angle, so every cylinder stays mechanically phase-locked rather than animating independently. Crankshaft rotation speed tracks live RPM. Subsystem color reflects the **live simulator's own ground-truth active fault** (from `GET /api/simulator/fault`), never the classifier's raw probabilities — the model deliberately does not use ML confidence to manufacture a dramatic visual fault, and the page carries an explicit disclaimer to that effect. Camera supports orbit/pan/zoom with a one-click reset; clicking or hovering a subsystem shows a contextual info panel.
+
+**Design system.** A neutral dark surface palette with a single restrained accent color; green/amber/red used only for actual health/risk meaning, not decoration. IBM Plex Sans / Sans Condensed / Mono for a technical-instrumentation typographic hierarchy. Shared primitives (`.panel`, `.data-row`, `.metric-hero`, `.status-tag`, `.bar-row`, `.segmented`, `.disclosure`) defined once as CSS custom properties and reused across every page, so a large number/label/status pattern always looks the same regardless of which page it's on.
+
+**Honest empty/error states.** RUL-withheld, service-unavailable, and "waiting for diagnostics" states are all first-class, styled states (a headline plus an explanatory sentence) — never a blank panel, a stack trace, or a fabricated value.
+
+---
+
 ## Fault Injection / Demo Scenarios
 
 | Fault Mode | Purpose | Expected Demonstration |
@@ -238,8 +260,8 @@ AeroTwin-X has been validated through a real end-to-end sweep with all three ser
 
 | Check | Result |
 |---|---|
-| Java test suite | **53 / 53 passing** |
-| Python test suite | **74 / 74 passing** |
+| Java test suite | **56 / 56 passing** |
+| Python test suite | **77 / 77 passing** |
 | Frontend production build | **Passing**, 0 TypeScript errors |
 | Real-browser QA | Completed — full dashboard, all panels, zero console errors across a full fault sweep |
 | Live WebSocket | Verified — continuous 1 Hz frames, correct ISO-8601 timestamps |
@@ -359,7 +381,7 @@ backend/                  Java/Spring Boot service — simulation, orchestration
     service/                Clients to the Python service, diagnostic-history buffer
     simulator/               Live engine telemetry simulator
     model/                    DTOs
-  src/test/java/            53 JUnit tests
+  src/test/java/            56 JUnit tests
 
 physics-service/          Python/FastAPI service — physics, ML, health/degradation/RUL, mission
   api/routes/                REST route definitions
@@ -370,13 +392,18 @@ physics-service/          Python/FastAPI service — physics, ML, health/degrada
     mission/                  Mission simulation + What-If
     simulation/               Fault models used by both the offline generator and live injection
   scripts/                   Dataset generation, training, offline replay
-  tests/                     74 pytest tests
+  tests/                     77 pytest tests
   data/                      generated/ (datasets + RUL replay output) and models/ (trained
                              artifacts) — committed, reproducible via scripts/ above
 
-frontend/                 React/TypeScript operator dashboard
-  src/components/            One component per dashboard panel
-  src/hooks/                 Polling (useDiagnostics) and WebSocket (useTelemetryStream) hooks
+frontend/                 React/TypeScript operator console (see Frontend / UI Architecture)
+  src/pages/                 One file per routed page (Overview, DigitalTwinPage, Diagnostics,
+                             Reliability, Mission, History)
+  src/components/            AppShell, icons, StatusPill/Bar/Sparkline, twin3d/ (3D engine model)
+  src/context/                AppDataContext — single shared poll/WebSocket subscription
+  src/hooks/                 Polling (useDiagnostics), WebSocket (useTelemetryStream), mission
+                             snapshot hooks
+  src/lib/                    Shared status-tier mapping and maintenance-advisory derivation
   src/api/                   Typed REST/WS client
 
 README.md                 This file
