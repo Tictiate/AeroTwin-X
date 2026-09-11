@@ -19,6 +19,51 @@ const DEFAULT_SCENARIO: WhatIfScenario = {
 };
 
 /**
+ * Alternate mission profiles reusing the existing MissionPhaseSpec contract exactly as the
+ * default profile does. These change only altitude/throttle/ambientTemperature per phase —
+ * the same fields the physics/health/degradation pipeline already consumes for the default
+ * profile — so every resulting number is a real calculation from the existing simulation,
+ * not a hardcoded or fabricated result. No new physics, no new endpoint.
+ */
+const HIGH_ALTITUDE_PROFILE: MissionProfile = {
+  missionId: "MISSION-HIGH-ALT-01",
+  phases: [
+    { phase: "TAKEOFF", durationSeconds: 120, altitudeStart: 0, altitudeEnd: 500, throttle: 0.9, load: 0.85, ambientTemperature: 15 },
+    { phase: "CLIMB", durationSeconds: 480, altitudeStart: 500, altitudeEnd: 18000, throttle: 0.85, load: 0.8, ambientTemperature: -5 },
+    { phase: "CRUISE", durationSeconds: 1800, altitudeStart: 18000, altitudeEnd: 18000, throttle: 0.68, load: 0.55, ambientTemperature: -20 },
+    { phase: "LOITER", durationSeconds: 900, altitudeStart: 18000, altitudeEnd: 17000, throttle: 0.55, load: 0.45, ambientTemperature: -18 },
+    { phase: "DESCENT", durationSeconds: 400, altitudeStart: 17000, altitudeEnd: 500, throttle: 0.3, load: 0.4, ambientTemperature: 5 },
+    { phase: "LANDING", durationSeconds: 180, altitudeStart: 500, altitudeEnd: 0, throttle: 0.25, load: 0.35, ambientTemperature: 15 },
+  ],
+};
+
+const HOT_WEATHER_PROFILE: MissionProfile = {
+  missionId: "MISSION-HOT-WX-01",
+  phases: [
+    { phase: "TAKEOFF", durationSeconds: 120, altitudeStart: 0, altitudeEnd: 500, throttle: 0.9, load: 0.85, ambientTemperature: 42 },
+    { phase: "CLIMB", durationSeconds: 300, altitudeStart: 500, altitudeEnd: 5000, throttle: 0.8, load: 0.75, ambientTemperature: 35 },
+    { phase: "CRUISE", durationSeconds: 1800, altitudeStart: 5000, altitudeEnd: 5000, throttle: 0.62, load: 0.55, ambientTemperature: 30 },
+    { phase: "LOITER", durationSeconds: 900, altitudeStart: 5000, altitudeEnd: 4500, throttle: 0.5, load: 0.45, ambientTemperature: 32 },
+    { phase: "DESCENT", durationSeconds: 300, altitudeStart: 4500, altitudeEnd: 500, throttle: 0.35, load: 0.4, ambientTemperature: 38 },
+    { phase: "LANDING", durationSeconds: 180, altitudeStart: 500, altitudeEnd: 0, throttle: 0.25, load: 0.35, ambientTemperature: 45 },
+  ],
+};
+
+type PresetKey = "standard" | "highAltitude" | "hotWeather";
+
+const PRESET_LABELS: Record<PresetKey, string> = {
+  standard: "Standard (sea-level baseline)",
+  highAltitude: "High Altitude (18,000 ft cruise)",
+  hotWeather: "Hot Weather (30–45°C ambient)",
+};
+
+const PRESET_ASSUMPTIONS: Record<PresetKey, string> = {
+  standard: "Cruise altitude 5,000 ft · ambient 5–15°C across phases.",
+  highAltitude: "Cruise altitude 18,000 ft · ambient down to −20°C at cruise · higher cruise throttle to hold altitude in thinner air.",
+  hotWeather: "Same altitude profile as the standard mission · ambient 30–45°C throughout, hottest at takeoff and landing.",
+};
+
+/**
  * Mirrors the backend's FaultType enum (physics-service/app/simulation/fault_models.py) and
  * the fault_type values mission_simulator.py branches on. "NORMAL" here means "send null" —
  * the backend has no NORMAL fault-type value, an absent faultType is what produces a
@@ -121,6 +166,10 @@ export function MissionSection({
 }) {
   const [profile, setProfile] = useState<MissionProfile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [presetKey, setPresetKey] = useState<PresetKey>("standard");
+
+  const activeProfile: MissionProfile | null =
+    presetKey === "standard" ? profile : presetKey === "highAltitude" ? HIGH_ALTITUDE_PROFILE : HOT_WEATHER_PROFILE;
 
   const [simResult, setSimResult] = useState<MissionSimulationResult | null>(null);
   const [simBusy, setSimBusy] = useState(false);
@@ -141,12 +190,12 @@ export function MissionSection({
   }, []);
 
   const runSimulation = async () => {
-    if (!profile) return;
+    if (!activeProfile) return;
     setSimBusy(true);
     setSimError(null);
     try {
       const result = await api.simulateMission({
-        profile,
+        profile: activeProfile,
         currentDegradation,
         initialRulHours,
         faultType: toFaultType(simFaultType),
@@ -160,12 +209,12 @@ export function MissionSection({
   };
 
   const runWhatIf = async () => {
-    if (!profile) return;
+    if (!activeProfile) return;
     setWhatIfBusy(true);
     setWhatIfError(null);
     try {
       const result = await api.runWhatIf({
-        baseMission: profile,
+        baseMission: activeProfile,
         scenario: { ...scenario, faultTypeOverride: toFaultType(whatIfFaultType) },
         currentDegradation,
         initialRulHours,
@@ -189,13 +238,32 @@ export function MissionSection({
           {profileError && <p className="panel-error">{profileError}</p>}
           {!profile && !profileError && <p className="panel-loading">Loading default mission profile…</p>}
 
-          {profile && (
+          {profile && activeProfile && (
             <>
+              <div className="mission-controls" style={{ marginBottom: 10 }}>
+                <div className="control-group">
+                  <label>Mission profile</label>
+                  <select value={presetKey} onChange={(e) => setPresetKey(e.target.value as PresetKey)}>
+                    {(Object.keys(PRESET_LABELS) as PresetKey[]).map((key) => (
+                      <option key={key} value={key}>
+                        {PRESET_LABELS[key]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: -4, marginBottom: 12 }}>
+                {PRESET_ASSUMPTIONS[presetKey]}
+              </p>
+
               <div className="phase-timeline" style={{ marginBottom: 12 }}>
-                {profile.phases.map((phase) => (
+                {activeProfile.phases.map((phase) => (
                   <div className="phase-chip" key={phase.phase}>
                     <div className="phase-name">{phase.phase}</div>
                     <div className="phase-health">{Math.round(phase.durationSeconds / 60)} min</div>
+                    <div className="phase-health" style={{ fontSize: 10 }}>
+                      {Math.round(phase.altitudeEnd)} ft · {phase.ambientTemperature.toFixed(0)}°C
+                    </div>
                   </div>
                 ))}
               </div>
@@ -298,10 +366,13 @@ export function MissionSection({
               </span>
             </div>
             <FaultTypeSelect value={whatIfFaultType} onChange={setWhatIfFaultType} label="Scenario fault" />
-            <button className="action" onClick={runWhatIf} disabled={whatIfBusy || !profile}>
+            <button className="action" onClick={runWhatIf} disabled={whatIfBusy || !activeProfile}>
               {whatIfBusy ? "Comparing…" : "Run What-If"}
             </button>
           </div>
+          <p style={{ fontSize: 11, color: "var(--text-faint)" }}>
+            What-If runs against the mission profile selected above ({PRESET_LABELS[presetKey]}).
+          </p>
           {whatIfFaultType !== "NORMAL" && (
             <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
               Baseline stays healthy; only the scenario column carries the selected fault, so the delta isolates its

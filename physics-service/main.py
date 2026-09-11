@@ -6,6 +6,7 @@ from api.routes import ml
 from api.routes import health_analysis
 from api.routes import degradation
 from api.routes import mission
+from api.routes import mission_history
 from api.routes import simulation
 
 app = FastAPI(title="AeroTwin-X Physics Service", version="0.1.0")
@@ -16,6 +17,7 @@ app.include_router(ml.router)
 app.include_router(health_analysis.router)
 app.include_router(degradation.router)
 app.include_router(mission.router)
+app.include_router(mission_history.router)
 app.include_router(simulation.router)
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 package com.aerotwin.controller;
 
+import com.aerotwin.model.mission.HistoryRunDetail;
+import com.aerotwin.model.mission.HistoryRunSummary;
 import com.aerotwin.model.mission.MissionProfile;
 import com.aerotwin.model.mission.MissionSimulationRequest;
 import com.aerotwin.model.mission.MissionSimulationResult;
@@ -10,11 +12,13 @@ import com.aerotwin.service.MissionServiceClient.MissionServiceUnavailableExcept
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -64,6 +68,26 @@ public class MissionController {
         try {
             WhatIfResult result = missionServiceClient.runWhatIf(request);
             return ResponseEntity.ok(result);
+        } catch (MissionServiceUnavailableException ex) {
+            return missionUnavailable(ex);
+        }
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<?> listHistory() {
+        try {
+            List<HistoryRunSummary> runs = missionServiceClient.listHistoryRuns();
+            return ResponseEntity.ok(runs);
+        } catch (MissionServiceUnavailableException ex) {
+            return missionUnavailable(ex);
+        }
+    }
+
+    @GetMapping("/history/{scenario}")
+    public ResponseEntity<?> getHistory(@PathVariable String scenario) {
+        try {
+            HistoryRunDetail run = missionServiceClient.getHistoryRun(scenario);
+            return ResponseEntity.ok(run);
         } catch (MissionServiceUnavailableException ex) {
             return missionUnavailable(ex);
         }

@@ -645,3 +645,55 @@ button.action:disabled {
   text-align: center;
   line-height: 1.6;
 }
+
+/* ── Live Digital Twin (3D) ─────────────────────────────────────────── */
+
+.twin3d-panel {
+  grid-column: 1 / -1;
+}
+
+.twin3d-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+.twin3d-stats b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.twin3d-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  max-width: 100%;
+  background: radial-gradient(circle at 50% 40%, rgba(53, 201, 232, 0.06), transparent 70%), var(--bg-panel-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.twin3d-canvas-wrap canvas {
+  display: block;
+}
+
+.twin3d-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.twin3d-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}

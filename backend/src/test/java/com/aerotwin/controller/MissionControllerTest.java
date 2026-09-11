@@ -1,5 +1,8 @@
 package com.aerotwin.controller;
 
+import com.aerotwin.model.mission.HistoryPoint;
+import com.aerotwin.model.mission.HistoryRunDetail;
+import com.aerotwin.model.mission.HistoryRunSummary;
 import com.aerotwin.model.mission.MissionPhaseResult;
 import com.aerotwin.model.mission.MissionPhaseSpec;
 import com.aerotwin.model.mission.MissionProfile;
@@ -129,6 +132,46 @@ class MissionControllerTest {
         mockMvc.perform(get("/api/mission/default-profile"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.status").value("mission-unavailable"));
+    }
+
+    // ── /api/mission/history ──────────────────────────────────────────────────
+
+    @Test
+    void listHistory_returnsRunSummaries() throws Exception {
+        when(missionServiceClient.listHistoryRuns()).thenReturn(List.of(
+                new HistoryRunSummary("LUBRICATION_DEGRADATION", "MSN-LUBRICATION_DEGRADATION-000", "ENG-DATASET-000", 1500)
+        ));
+
+        mockMvc.perform(get("/api/mission/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].scenario").value("LUBRICATION_DEGRADATION"))
+                .andExpect(jsonPath("$[0].totalSamples").value(1500));
+    }
+
+    @Test
+    void listHistory_whenServiceUnavailable_returns503() throws Exception {
+        when(missionServiceClient.listHistoryRuns())
+                .thenThrow(new MissionServiceUnavailableException("Mission service is unavailable"));
+
+        mockMvc.perform(get("/api/mission/history"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value("mission-unavailable"));
+    }
+
+    @Test
+    void getHistoryRun_returnsRunDetail() throws Exception {
+        HistoryPoint point = new HistoryPoint(
+                "2026-01-01 00:00:01+00:00", 100.0, 0.0, 0.0, "HEALTHY",
+                null, null, null, 0.05, "INSUFFICIENT_HISTORY", "NORMAL", null);
+        when(missionServiceClient.getHistoryRun("LUBRICATION_DEGRADATION")).thenReturn(
+                new HistoryRunDetail("LUBRICATION_DEGRADATION", "MSN-LUBRICATION_DEGRADATION-000",
+                        "ENG-DATASET-000", 1500, List.of(point)));
+
+        mockMvc.perform(get("/api/mission/history/LUBRICATION_DEGRADATION"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scenario").value("LUBRICATION_DEGRADATION"))
+                .andExpect(jsonPath("$.points[0].health").value(100.0))
+                .andExpect(jsonPath("$.points[0].rulStatus").value("INSUFFICIENT_HISTORY"));
     }
 
     // ── Fixtures ───────────────────────────────────────────────────────────────

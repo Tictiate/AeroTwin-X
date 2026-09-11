@@ -1,6 +1,8 @@
 import type {
   DiagnosticSnapshot,
   FaultTypeName,
+  HistoryRunDetail,
+  HistoryRunSummary,
   MissionProfile,
   MissionSimulationResult,
   ServiceUnavailableBody,
@@ -78,6 +80,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  listMissionHistory: () => request<HistoryRunSummary[]>("/api/mission/history"),
+  getMissionHistoryRun: (scenario: string) =>
+    request<HistoryRunDetail>(`/api/mission/history/${encodeURIComponent(scenario)}`),
   getSimulatorFault: () => request<SimulatorFaultState>("/api/simulator/fault"),
   setSimulatorFault: (faultType: FaultTypeName, severity: number | null) =>
     request<SimulatorFaultState>("/api/simulator/fault", {

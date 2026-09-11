@@ -41,8 +41,29 @@ All of the following are implemented and live-verified in this repository (not a
 - **Degradation & Remaining Useful Life (RUL) estimation**, including honest refusal to estimate when history is insufficient
 - **Mission reliability simulation** and **What-If trade studies** (e.g. "what if cruise is 50% longer?")
 - **Live fault injection** via a REST control endpoint, with deterministic reset back to a healthy baseline
+- **High-Altitude and Hot-Weather mission presets** — alternate `MissionProfile`s exercising the same physics/health/degradation pipeline at different altitude/temperature operating points
+- **Mission History / Replay** — browse the committed, deterministically-generated RUL replay trajectories for all 5 scenarios
+- **Standalone Maintenance Advisory** — a plain-language "what needs attention, why, what to do" synthesis of the existing health/degradation/RUL/diagnosis fields
+- **Live 3D digital twin visualization** — a real-time Three.js scene bound to live RPM, health, active fault, oil pressure, and vibration
 - **Live operator dashboard** (React/TypeScript) consuming all of the above in real time
 - **Graceful degraded-mode UI** — the dashboard stays honest and doesn't crash or fabricate data when a downstream service is unavailable
+
+## SIH 2026 Demonstration Capabilities
+
+A concise map from the SIH problem statement's requirement areas to what this prototype actually demonstrates today — every item below is live, tested, and described in more detail in its own section further down.
+
+- **Synchronized computational digital twin** — 1 Hz live telemetry, physics-predicted expected state, real-time residuals ([Digital Twin / Physics Approach](#digital-twin--physics-approach))
+- **Physics-relative residual monitoring** — actual vs. physics-expected, not fixed-threshold ([Digital Twin / Physics Approach](#digital-twin--physics-approach))
+- **AI anomaly/fault diagnosis** — Isolation Forest + XGBoost, with per-fault probabilities ([AI / Fault Diagnosis](#ai--fault-diagnosis))
+- **Sensor-fault isolation** — distinguishes sensor failure from physical failure, including an honestly-documented limitation ([Known Limitations](#known-limitations))
+- **Health / Degradation / RUL** — six-subsystem health index, degradation trend, RUL honestly withheld when unjustified ([Health, Degradation and RUL](#health-degradation-and-rul))
+- **Mission simulation** — full-mission health/risk trajectory and What-If trade studies ([Mission Reliability](#mission-reliability))
+- **High-altitude scenario** — an 18,000 ft cruise mission preset, exercising the same physics pipeline at a different operating point
+- **Hot-weather scenario** — a 30–45°C ambient mission preset, same mechanism
+- **Mission History / Replay** — inspect a past run's real, committed health/degradation/RUL trajectory, clearly labeled as historical
+- **Maintenance advisory** — an operator-facing "what, why, what to do" panel derived from existing outputs, not a second decision engine
+- **Live 3D twin visualization** — RPM-driven rotation, health-driven color, live-fault-driven subsystem highlighting
+- **Explainability** — SHAP feature attributions for classifier decisions, shown live when the anomaly gate is open
 
 ---
 
@@ -98,7 +119,7 @@ All of the following are implemented and live-verified in this repository (not a
 | Language | Java 21 |
 | Framework | Spring Boot 3.3.0 (`spring-boot-starter-web`, `spring-boot-starter-websocket`) |
 | Build | Maven (wrapper included, `mvnw` / `mvnw.cmd`) |
-| Testing | JUnit 5 + Spring's `@WebMvcTest`/Mockito, 53 tests |
+| Testing | JUnit 5 + Spring's `@WebMvcTest`/Mockito, 56 tests |
 
 ### Physics / ML — Python
 
@@ -111,7 +132,7 @@ All of the following are implemented and live-verified in this repository (not a
 | Anomaly detection | scikit-learn `IsolationForest` |
 | Fault classification | XGBoost multiclass `XGBClassifier` |
 | Explainability | SHAP `TreeExplainer` |
-| Testing | pytest, 74 tests |
+| Testing | pytest, 77 tests |
 
 ### Frontend
 
@@ -121,6 +142,7 @@ All of the following are implemented and live-verified in this repository (not a
 | Build tool | Vite 5.4 |
 | Styling | Hand-written CSS (no CSS framework) |
 | Charts | Hand-rolled `Sparkline`/`Bar` components (no third-party charting library) |
+| 3D | Three.js + `@react-three/fiber`, for the Live Digital Twin visualization only |
 | State | React hooks (`useDiagnostics`, `useTelemetryStream`) polling REST + a live WebSocket — no external state-management library |
 
 ### Communication
@@ -399,17 +421,17 @@ All Java REST reads are **read-only** — they never mutate simulator or diagnos
 ## Development / Validation
 
 ```sh
-# Java — 53 tests
+# Java — 56 tests
 cd backend && ./mvnw test        # or .\mvnw.cmd test on Windows
 
-# Python — 74 tests
+# Python — 77 tests
 cd physics-service && .venv/Scripts/python.exe -m pytest -q
 
 # Frontend — production build (tsc + vite build)
 cd frontend && npm run build
 ```
 
-Current passing baseline: **53/53 Java, 74/74 Python, frontend build clean.**
+Current passing baseline: **56/56 Java, 77/77 Python, frontend build clean.**
 
 ---
 
@@ -422,6 +444,24 @@ Current passing baseline: **53/53 Java, 74/74 Python, frontend build clean.**
 - **RUL is never fabricated.** The system refuses to produce a number it can't justify from actual history, by design in the estimator itself, not just in the UI.
 - **Fault injection is explicit, bounded, and resettable** — nothing in the live simulator drifts into a fault state on its own; every fault is operator-triggered and cleanly reversible.
 - **The dashboard fails honestly.** When a downstream service is unavailable, the UI shows a clear "service unavailable" state with whatever last-known data is safe to show — it does not fabricate values or silently freeze without explanation.
+
+---
+
+## Deployment Roadmap
+
+**Current prototype:** everything described in this README — the digital twin, physics-relative residual pipeline, ML anomaly/fault diagnosis, health/degradation/RUL, mission simulation (including High-Altitude and Hot-Weather presets), Mission History/Replay, Maintenance Advisory, and the live 3D twin visualization — runs today, live, on physics-constrained **synthetic** telemetry, deployed publicly on Vercel + Render.
+
+**Future production deployment** would require work this prototype does not currently implement or claim:
+
+- **Real engine telemetry integration** — replacing the simulated telemetry source with actual sensor data from a real MALE UAV piston engine
+- **CAN / ECU / FADEC integration** — a real hardware/software interface to an engine control unit, in place of the current simulated telemetry generator
+- **Hardware-in-the-loop (HIL) validation** — validating the physics twin and ML models against a real or test-stand engine, not only synthetic data
+- **Larger, real-world flight datasets** — retraining and revalidating the anomaly detector and fault classifier on real fault occurrences, not only the current 7,500-row synthetic dataset
+- **Edge deployment** — running inference on onboard/embedded hardware rather than a cloud-hosted Python service, for use without a ground data link
+- **Fleet-level monitoring** — extending the current single-engine architecture to track, compare, and alert across multiple airframes/engines
+- **Certification / qualification** — any real airworthiness or maintenance-authority sign-off process, which this prototype makes no claim toward
+
+None of the items above are implemented in this repository. They are listed here as the honest next steps from prototype to a fieldable system, not as existing capabilities.
 
 ---
 

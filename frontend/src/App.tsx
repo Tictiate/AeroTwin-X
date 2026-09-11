@@ -8,7 +8,10 @@ import { TwinResidualPanel } from "./components/TwinResidualPanel";
 import { DiagnosisPanel } from "./components/DiagnosisPanel";
 import { SensorIsolationPanel } from "./components/SensorIsolationPanel";
 import { DegradationRulPanel } from "./components/DegradationRulPanel";
+import { LiveDigitalTwin3D } from "./components/LiveDigitalTwin3D";
+import { MaintenanceAdvisoryPanel } from "./components/MaintenanceAdvisoryPanel";
 import { MissionSection } from "./components/MissionSection";
+import { MissionHistoryPanel } from "./components/MissionHistoryPanel";
 import { SimulatorControlPanel } from "./components/SimulatorControlPanel";
 
 export default function App() {
@@ -27,6 +30,11 @@ export default function App() {
       <AlertBanner state={diagnostics} />
 
       <div className="grid">
+        <LiveDigitalTwin3D
+          telemetry={stream.latest ?? fallbackTelemetry}
+          health={snapshot?.health ?? null}
+          wsStatus={stream.status}
+        />
         <HealthPanel health={snapshot?.health ?? null} />
         <TelemetryPanel latest={stream.latest ?? fallbackTelemetry} history={stream.history} wsStatus={stream.status} />
         {snapshot ? (
@@ -55,12 +63,20 @@ export default function App() {
         )}
         <SensorIsolationPanel health={snapshot?.health ?? null} />
         <DegradationRulPanel degradation={snapshot?.degradation ?? null} rul={snapshot?.rul ?? null} />
+        <MaintenanceAdvisoryPanel
+          health={snapshot?.health ?? null}
+          degradation={snapshot?.degradation ?? null}
+          rul={snapshot?.rul ?? null}
+          analysis={snapshot?.analysis ?? null}
+        />
       </div>
 
       <MissionSection
         currentDegradation={snapshot?.degradation ?? null}
         initialRulHours={snapshot?.rul?.rulHours ?? null}
       />
+
+      <MissionHistoryPanel />
 
       <p className="footer-note">
         AeroTwin-X is a physics-constrained synthetic-telemetry prototype for SIH 2026. Health, degradation, RUL and

@@ -227,6 +227,34 @@ export interface WhatIfResult {
   interpretation: string;
 }
 
+// ── Mission History / Replay ────────────────────────────────────────────
+
+export interface HistoryRunSummary {
+  scenario: string;
+  missionId: string | null;
+  engineId: string | null;
+  totalSamples: number;
+}
+
+export interface HistoryPoint {
+  timestamp: string;
+  health: number | null;
+  degradation: number | null;
+  degradationRatePerHour: number | null;
+  dominantMechanism: string | null;
+  rulHours: number | null;
+  rulLowerBoundHours: number | null;
+  rulUpperBoundHours: number | null;
+  rulConfidence: number | null;
+  rulStatus: string | null;
+  diagnosticType: string | null;
+  affectedSensor: string | null;
+}
+
+export interface HistoryRunDetail extends HistoryRunSummary {
+  points: HistoryPoint[];
+}
+
 // ── Live simulator fault control ──────────────────────────────────────────
 
 export type FaultTypeName =

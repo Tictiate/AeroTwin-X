@@ -1,5 +1,7 @@
 package com.aerotwin.service;
 
+import com.aerotwin.model.mission.HistoryRunDetail;
+import com.aerotwin.model.mission.HistoryRunSummary;
 import com.aerotwin.model.mission.MissionProfile;
 import com.aerotwin.model.mission.MissionSimulationRequest;
 import com.aerotwin.model.mission.MissionSimulationResult;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -83,6 +86,40 @@ public class MissionServiceClient {
             return result;
         } catch (RestClientException ex) {
             LOGGER.warn("Mission service unavailable (what-if): {}", ex.getMessage());
+            throw new MissionServiceUnavailableException("Mission service is unavailable", ex);
+        }
+    }
+
+    /** List available Mission History / Replay runs from the already-committed replay artifacts. */
+    public List<HistoryRunSummary> listHistoryRuns() {
+        try {
+            List<HistoryRunSummary> result = restClient.get()
+                    .uri("/mission/history")
+                    .retrieve()
+                    .body(new org.springframework.core.ParameterizedTypeReference<List<HistoryRunSummary>>() {});
+            if (result == null) {
+                throw new MissionServiceUnavailableException("Mission service returned an empty history list");
+            }
+            return result;
+        } catch (RestClientException ex) {
+            LOGGER.warn("Mission service unavailable (history list): {}", ex.getMessage());
+            throw new MissionServiceUnavailableException("Mission service is unavailable", ex);
+        }
+    }
+
+    /** Retrieve one Mission History / Replay run's real, committed replay data. */
+    public HistoryRunDetail getHistoryRun(String scenario) {
+        try {
+            HistoryRunDetail result = restClient.get()
+                    .uri("/mission/history/{scenario}", scenario)
+                    .retrieve()
+                    .body(HistoryRunDetail.class);
+            if (result == null) {
+                throw new MissionServiceUnavailableException("Mission service returned an empty history run");
+            }
+            return result;
+        } catch (RestClientException ex) {
+            LOGGER.warn("Mission service unavailable (history run={}): {}", scenario, ex.getMessage());
             throw new MissionServiceUnavailableException("Mission service is unavailable", ex);
         }
     }
