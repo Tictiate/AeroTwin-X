@@ -1,82 +1,110 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useAppData } from "../context/AppDataContext";
-import { IconDiagnostics, IconHistory, IconMission, IconOverview, IconReliability, IconTwin } from "./icons";
+import { IconClose, IconDiagnostics, IconHistory, IconMenu, IconMission, IconOverview, IconReliability, IconTwin } from "./icons";
+import { DesktopSidebar, MobilePanel, MobileTopBar, SidebarLink, SidebarProvider, useSidebar, type SidebarNavItem } from "./ui/sidebar";
+import { ScrollProgress } from "./ui/scroll-progress";
 
-const NAV = [
-  { to: "/", label: "Overview", icon: IconOverview, end: true },
-  { to: "/twin", label: "Digital Twin", icon: IconTwin },
-  { to: "/diagnostics", label: "Diagnostics", icon: IconDiagnostics },
-  { to: "/reliability", label: "Reliability", icon: IconReliability },
-  { to: "/mission", label: "Mission", icon: IconMission },
-  { to: "/history", label: "History", icon: IconHistory },
+const NAV: SidebarNavItem[] = [
+  { to: "/", label: "Overview", icon: <IconOverview />, end: true },
+  { to: "/twin", label: "Digital Twin", icon: <IconTwin /> },
+  { to: "/diagnostics", label: "Diagnostics", icon: <IconDiagnostics /> },
+  { to: "/reliability", label: "Reliability", icon: <IconReliability /> },
+  { to: "/mission", label: "Mission", icon: <IconMission /> },
+  { to: "/history", label: "History", icon: <IconHistory /> },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
-      {NAV.map(({ to, label, icon: Icon, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          onClick={onNavigate}
-          viewTransition
-          className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
-        >
-          <Icon />
-          {label}
-        </NavLink>
+      {NAV.map((item) => (
+        <SidebarLink key={item.to} link={item} onNavigate={onNavigate} />
       ))}
     </>
   );
 }
 
-export function AppShell() {
+function Brand() {
+  return (
+    <div className="aero-sidebar-brand">
+      <div className="aero-sidebar-brand-mark" aria-hidden="true">
+        AX
+      </div>
+      <div className="aero-sidebar-brand-text">
+        <div className="name">AEROTWIN&#8209;X</div>
+        <div className="tagline">Propulsion Digital Twin</div>
+      </div>
+    </div>
+  );
+}
+
+function Footer({ engineId, missionId, wsOpen, statusLabel }: { engineId: string; missionId: string; wsOpen: boolean; statusLabel: string }) {
+  return (
+    <div className="aero-sidebar-footer">
+      <div className="row">
+        <span>Engine</span>
+        <b>{engineId}</b>
+      </div>
+      <div className="row">
+        <span>Mission</span>
+        <b>{missionId}</b>
+      </div>
+      <div className="row" style={{ marginTop: 6 }}>
+        <span className={`live-dot ${wsOpen ? "open" : "down"}`}>
+          <span className="dot" aria-hidden="true" />
+          {statusLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function AppShellInner() {
   const { effectiveTelemetry, stream } = useAppData();
+  const { open, setOpen } = useSidebar();
   const wsOpen = stream.status === "open";
+  const engineId = effectiveTelemetry?.engineId ?? "—";
+  const missionId = effectiveTelemetry?.missionId ?? "—";
+  const statusLabel = wsOpen ? "LIVE" : stream.status.toUpperCase();
 
   return (
     <div className="shell">
-      <aside className="sidebar" aria-label="Primary navigation">
-        <div className="sidebar-brand">
-          <div className="name">AEROTWIN&#8209;X</div>
-          <div className="tagline">Propulsion Digital Twin</div>
-        </div>
-        <nav className="sidebar-nav">
+      <DesktopSidebar>
+        <Brand />
+        <nav className="aero-sidebar-nav">
           <NavLinks />
         </nav>
-        <div className="sidebar-footer">
-          <div className="row">
-            <span>Engine</span>
-            <b>{effectiveTelemetry?.engineId ?? "—"}</b>
-          </div>
-          <div className="row">
-            <span>Mission</span>
-            <b>{effectiveTelemetry?.missionId ?? "—"}</b>
-          </div>
-          <div className="row" style={{ marginTop: 6 }}>
-            <span className={`live-dot ${wsOpen ? "open" : "down"}`}>
-              <span className="dot" aria-hidden="true" />
-              {wsOpen ? "LIVE" : stream.status.toUpperCase()}
-            </span>
-          </div>
-        </div>
-      </aside>
+        <Footer engineId={engineId} missionId={missionId} wsOpen={wsOpen} statusLabel={statusLabel} />
+      </DesktopSidebar>
 
-      <div className="topbar" role="banner">
-        <span className="topbar-brand">AEROTWIN&#8209;X</span>
-        <span className={`live-dot ${wsOpen ? "open" : "down"}`}>
-          <span className="dot" aria-hidden="true" />
-          {wsOpen ? "LIVE" : stream.status.toUpperCase()}
-        </span>
-      </div>
-      <nav className="topbar-nav" aria-label="Primary navigation">
-        <NavLinks />
-      </nav>
+      <MobileTopBar
+        open={open}
+        onOpen={() => setOpen(!open)}
+        menuIcon={<IconMenu />}
+        closeIcon={<IconClose />}
+        brand={<span className="aero-mobile-brand-text">AEROTWIN&#8209;X</span>}
+      />
+      <MobilePanel closeIcon={<IconClose />}>
+        <Brand />
+        <nav className="aero-sidebar-nav">
+          <NavLinks onNavigate={() => setOpen(false)} />
+        </nav>
+        <Footer engineId={engineId} missionId={missionId} wsOpen={wsOpen} statusLabel={statusLabel} />
+      </MobilePanel>
 
       <main className="main">
         <Outlet />
       </main>
     </div>
+  );
+}
+
+export function AppShell() {
+  return (
+    <>
+      <ScrollProgress />
+      <SidebarProvider>
+        <AppShellInner />
+      </SidebarProvider>
+    </>
   );
 }

@@ -119,49 +119,94 @@ button {
    ============================================================ */
 
 .shell {
-  display: grid;
-  grid-template-columns: var(--shell-w) 1fr;
   min-height: 100vh;
 }
 
-.sidebar {
+/* The sidebar is a fixed-position overlay, not a grid/flex track -- the
+   main content area always reserves exactly the COLLAPSED width, so
+   hovering the sidebar open never reflows or resizes anything else on the
+   page (in particular, it never triggers a resize on the Digital Twin's
+   WebGL canvas). */
+.aero-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
   background: var(--surface-sunken);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   padding: var(--space-5) var(--space-3);
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.sidebar-brand {
-  padding: 0 var(--space-3) var(--space-6);
+.aero-sidebar.expanded {
+  box-shadow: 6px 0 28px rgba(0, 0, 0, 0.45);
 }
 
-.sidebar-brand .name {
+.aero-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-1) var(--space-6);
+  min-width: 200px;
+}
+
+.aero-sidebar-brand-mark {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.aero-sidebar-brand-text {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.aero-sidebar.expanded .aero-sidebar-brand-text {
+  opacity: 1;
+  transition-delay: 0.05s;
+}
+
+.aero-sidebar-brand-text .name {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 0.04em;
   color: var(--text);
+  white-space: nowrap;
 }
 
-.sidebar-brand .tagline {
+.aero-sidebar-brand-text .tagline {
   font-size: 10.5px;
   color: var(--text-tertiary);
   letter-spacing: 0.03em;
   margin-top: 2px;
+  white-space: nowrap;
 }
 
-.sidebar-nav {
+.aero-sidebar-nav {
   display: flex;
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  min-width: 200px;
 }
 
-.nav-item {
+.aero-sidebar-link {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -175,25 +220,45 @@ button {
   border: 1px solid transparent;
 }
 
-.nav-item svg {
+.aero-sidebar-link-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.aero-sidebar-link-icon svg {
   width: 17px;
   height: 17px;
   flex-shrink: 0;
   stroke: currentColor;
 }
 
-.nav-item:hover {
+.aero-sidebar-link-label {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.aero-sidebar.expanded .aero-sidebar-link-label {
+  opacity: 1;
+  transition-delay: 0.05s;
+}
+
+.aero-sidebar-link:hover {
   background: var(--surface-raised);
   color: var(--text);
 }
 
-.nav-item.active {
+.aero-sidebar-link.active {
   background: var(--accent-surface);
   color: var(--accent);
   border-color: rgba(133, 166, 204, 0.22);
 }
 
-.sidebar-footer {
+.aero-sidebar-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.aero-sidebar-footer {
   border-top: 1px solid var(--border-subtle);
   padding-top: var(--space-4);
   margin-top: var(--space-4);
@@ -201,9 +266,17 @@ button {
   flex-direction: column;
   gap: var(--space-1);
   padding-left: var(--space-3);
+  min-width: 200px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
 }
 
-.sidebar-footer .row {
+.aero-sidebar.expanded .aero-sidebar-footer {
+  opacity: 1;
+  transition-delay: 0.05s;
+}
+
+.aero-sidebar-footer .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -211,7 +284,7 @@ button {
   color: var(--text-tertiary);
 }
 
-.sidebar-footer .row b {
+.aero-sidebar-footer .row b {
   color: var(--text-secondary);
   font-weight: 500;
   font-family: var(--font-mono);
@@ -252,6 +325,7 @@ button {
 
 .main {
   min-width: 0;
+  margin-left: var(--shell-w-collapsed);
   padding: var(--space-6) var(--space-7) var(--space-8);
 }
 
@@ -274,12 +348,12 @@ button {
   max-width: 62ch;
 }
 
-/* Mobile top bar (shown < 900px, sidebar hidden) */
-.topbar {
+/* Mobile top bar + slide-in panel (shown < 900px, desktop sidebar hidden) */
+.aero-mobile-bar {
   display: none;
 }
 
-.topbar-nav {
+.aero-mobile-panel {
   display: none;
 }
 
@@ -315,6 +389,38 @@ button {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+
+/* Slim, borderless readout row -- for secondary data that doesn't need its
+   own card per value (avoids "four empty boxes" for four numbers). */
+.telemetry-strip {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-7);
+  row-gap: var(--space-3);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.telemetry-strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.telemetry-strip-item .label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.telemetry-strip-item .value {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  color: var(--text);
 }
 
 .panel-flush {
@@ -406,6 +512,151 @@ button {
   font-size: 12.5px;
 }
 
+/* ============================================================
+   HEALTH GAUGE -- 270-degree instrument dial, not a smooth ring
+   ============================================================ */
+
+.health-gauge {
+  position: relative;
+  width: 208px;
+  height: 208px;
+  margin: 0 auto;
+}
+
+.health-gauge-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.health-gauge-track {
+  fill: none;
+  stroke: var(--surface-raised);
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+
+.health-gauge-tick {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.health-gauge-tick.major {
+  stroke: var(--text-tertiary);
+  stroke-width: 2;
+}
+
+.health-gauge-value {
+  fill: none;
+  stroke: var(--good);
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke 0.4s ease;
+}
+
+.health-gauge-value[data-tier="caution"] {
+  stroke: var(--warn);
+}
+
+.health-gauge-value[data-tier="degraded"],
+.health-gauge-value[data-tier="critical"] {
+  stroke: var(--critical);
+}
+
+.health-gauge-needle {
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.health-gauge-needle[data-tier="caution"] {
+  stroke: var(--warn);
+}
+
+.health-gauge-needle[data-tier="degraded"],
+.health-gauge-needle[data-tier="critical"] {
+  stroke: var(--critical);
+}
+
+.health-gauge-hub {
+  fill: var(--text-tertiary);
+}
+
+.health-gauge-readout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding-top: 16px;
+  text-align: center;
+}
+
+.health-gauge-value-text {
+  font-family: var(--font-mono);
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.health-gauge-value-text small {
+  font-size: 16px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-left: 3px;
+}
+
+/* ============================================================
+   TOP STATUS STRIP -- honest synchronization state, real signals only
+   ============================================================ */
+
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.status-strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.status-strip-item .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--unknown);
+}
+
+.status-strip-item.ok {
+  color: var(--good);
+}
+
+.status-strip-item.ok .dot {
+  background: var(--good);
+  box-shadow: 0 0 0 3px var(--good-surface);
+}
+
+.status-strip-tagline {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
 /* Tier colors, applied via [data-tier] rather than inline styles */
 [data-tier="healthy"] {
   color: var(--good);
@@ -483,6 +734,7 @@ button {
 }
 
 .bar-fill {
+  display: block;
   height: 100%;
   border-radius: 3px;
   background: var(--accent);
@@ -609,9 +861,10 @@ button {
 }
 
 .contrib-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 130px 1fr auto;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-3);
   padding: 7px 0;
   border-bottom: 1px solid var(--border-subtle);
   font-size: 12.5px;
@@ -630,6 +883,139 @@ button {
 .contrib-item .away {
   color: var(--accent);
   font-family: var(--font-mono);
+}
+
+/* SHAP bars reuse the diverge-track primitive but with toward/away semantics
+   instead of generic positive/negative. */
+.contrib-item .diverge-fill.pos {
+  background: var(--critical);
+}
+
+.contrib-item .diverge-fill.neg {
+  background: var(--accent);
+}
+
+/* Fault probability: the leading (most likely) fault stays full-weight,
+   the rest recede -- relevance instead of equal-looking bars. */
+.fault-prob-rest {
+  opacity: 0.7;
+}
+
+/* Current Diagnosis + Anomaly Score as one typographic block instead of
+   two equal-weight bordered cards -- a single divider does the separating. */
+.diagnosis-block {
+  display: flex;
+  gap: var(--space-6);
+  align-items: stretch;
+}
+
+.diagnosis-block-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.diagnosis-block-gauge {
+  flex: 1;
+  min-width: 0;
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 900px) {
+  .diagnosis-block {
+    flex-direction: column;
+  }
+
+  .diagnosis-block-gauge {
+    padding-left: 0;
+    padding-top: var(--space-5);
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+/* ============================================================
+   ANOMALY GAUGE -- current score plotted against the detection
+   threshold, instead of a bare number.
+   ============================================================ */
+
+.gauge-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.gauge-threshold-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.gauge-threshold-label b {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.gauge-score {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 10px;
+  color: var(--good);
+  transition: color 0.3s ease;
+}
+
+.gauge-score[data-tier="degraded"] {
+  color: var(--critical);
+}
+
+.gauge-track {
+  position: relative;
+  height: 10px;
+  margin-top: 16px;
+  background: var(--surface-raised);
+  border-radius: 5px;
+}
+
+.gauge-zone-warn {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  background: var(--critical-surface);
+  border-radius: 0 5px 5px 0;
+}
+
+.gauge-threshold-tick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--text-tertiary);
+  transform: translateX(-1px);
+}
+
+.gauge-marker {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--good);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--good-surface);
+  transform: translate(-50%, -50%);
+  transition: left 0.4s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.gauge-marker.open {
+  background: var(--critical);
+  box-shadow: 0 0 0 2px var(--critical-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gauge-marker {
+    transition: none;
+  }
 }
 
 /* Buttons */
@@ -819,6 +1205,61 @@ input[type="range"] {
   height: 220px;
   min-height: 0;
   cursor: grab;
+}
+
+.twin-canvas.hero {
+  height: min(60vh, 660px);
+  min-height: 380px;
+}
+
+/* Overview hero row -- the engine dominates the width, the health
+   instrument occupies a narrow side column instead of an equal-width card. */
+.hero-row {
+  display: grid;
+  grid-template-columns: 2.3fr 1fr;
+  gap: var(--space-5);
+  align-items: stretch;
+  margin-bottom: var(--space-7);
+}
+
+.hero-gauge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* World-anchored engineering callouts -- typography + a thin leader line,
+   not a dashboard card. */
+.twin-callout {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.twin-callout-label {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.twin-callout-value {
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.twin-callout-fault[data-active="true"] .twin-callout-value {
+  color: var(--critical);
+}
+
+@media (max-width: 900px) {
+  .hero-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .twin-canvas canvas {
@@ -1029,84 +1470,123 @@ input[type="range"] {
 }
 
 /* ============================================================
-   ACTUAL VS EXPECTED
-   Signature visualization: physics-expected value as a fixed
-   centerline, live actual value offset by its real residual.
+   ACTUAL VS EXPECTED -- signature time-series
+   The live engine signal plotted against the physics-expected state
+   over a real rolling window (AppDataContext's snapshot history).
+   Healthy = the lines track each other; fault = they visibly part.
+   Every point is a real tick already received -- no invented samples.
    ============================================================ */
 
-.avx-grid {
+.avx {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-.avx-row {
-  display: grid;
-  grid-template-columns: 88px 1fr auto;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: 12.5px;
+.avx-tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
-.avx-label {
-  color: var(--text-secondary);
+.avx-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 6px 13px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 
-.avx-track {
+.avx-tab:hover {
+  color: var(--text);
+  border-color: var(--accent-dim);
+}
+
+.avx-tab.active {
+  background: var(--accent-surface);
+  border-color: rgba(133, 166, 204, 0.4);
+  color: var(--accent);
+}
+
+.avx-chart-wrap {
   position: relative;
-  height: 20px;
-  background: var(--surface-raised);
-  border-radius: 10px;
+  height: 170px;
 }
 
-.avx-expected-mark {
+.avx-compact .avx-chart-wrap {
+  height: 128px;
+}
+
+.avx-chart {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.avx-gridline {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.avx-expected-line {
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
+}
+
+.avx-actual-line {
+  fill: none;
+  stroke: var(--good);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke 0.4s ease;
+}
+
+.avx-actual-line[data-tier="caution"] {
+  stroke: var(--warn);
+}
+
+.avx-actual-line[data-tier="degraded"] {
+  stroke: var(--critical);
+}
+
+.avx-actual-dot {
+  fill: var(--good);
+  transition: fill 0.4s ease;
+}
+
+.avx-actual-dot[data-tier="caution"] {
+  fill: var(--warn);
+}
+
+.avx-actual-dot[data-tier="degraded"] {
+  fill: var(--critical);
+}
+
+.avx-building {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 2px;
-  height: 12px;
-  background: var(--text-tertiary);
-  transform: translate(-50%, -50%);
-}
-
-.avx-actual-mark {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--good);
-  box-shadow: 0 0 0 3px var(--good-surface);
-  transform: translate(-50%, -50%);
-  transition: left 0.4s ease, background-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.avx-track[data-tier="caution"] .avx-actual-mark {
-  background: var(--warn);
-  box-shadow: 0 0 0 3px var(--warn-surface);
-}
-
-.avx-track[data-tier="degraded"] .avx-actual-mark {
-  background: var(--critical);
-  box-shadow: 0 0 0 3px var(--critical-surface);
-}
-
-.avx-values {
-  font-family: var(--font-mono);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-tertiary);
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-
-.avx-vs {
-  margin: 0 4px;
-  color: var(--text-tertiary);
+  font-size: 12.5px;
 }
 
 .avx-legend {
   display: flex;
   gap: var(--space-5);
-  margin: var(--space-3) 0 0;
+  margin: 6px 0 0;
 }
 
 .avx-legend-item {
@@ -1117,22 +1597,87 @@ input[type="range"] {
   color: var(--text-tertiary);
 }
 
-.avx-legend-mark {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.avx-legend-swatch {
+  width: 12px;
+  height: 2px;
   display: inline-block;
-}
-
-.avx-legend-mark.expected {
-  width: 2px;
-  height: 10px;
-  border-radius: 0;
   background: var(--text-tertiary);
+  border-radius: 1px;
 }
 
-.avx-legend-mark.actual {
+.avx-legend-swatch.expected {
+  background-image: linear-gradient(to right, var(--text-tertiary) 60%, transparent 40%);
+  background-size: 5px 2px;
+  background-color: transparent;
+}
+
+.avx-legend-swatch.actual {
   background: var(--good);
+}
+
+.avx-legend-swatch.actual[data-tier="caution"] {
+  background: var(--warn);
+}
+
+.avx-legend-swatch.actual[data-tier="degraded"] {
+  background: var(--critical);
+}
+
+.avx-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.avx-interpretation {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--good);
+  transition: color 0.4s ease;
+}
+
+.avx-interpretation[data-tier="caution"] {
+  color: var(--warn);
+}
+
+.avx-interpretation[data-tier="degraded"] {
+  color: var(--critical);
+}
+
+.avx-now {
+  display: flex;
+  gap: var(--space-5);
+  flex-shrink: 0;
+}
+
+.avx-now-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.avx-now-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.avx-now-value {
+  font-size: 15px;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avx-actual-line,
+  .avx-actual-dot,
+  .avx-interpretation {
+    transition: none !important;
+  }
 }
 
 /* ============================================================
@@ -1248,11 +1793,6 @@ input[type="range"] {
   }
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.2s;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .page-header,
   .twin-inspector,
@@ -1260,13 +1800,8 @@ input[type="range"] {
     animation: none !important;
   }
 
-  .avx-actual-mark {
+  .avx-actual-dot {
     transition: none !important;
-  }
-
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none !important;
   }
 }
 
@@ -1275,15 +1810,16 @@ input[type="range"] {
    ============================================================ */
 
 @media (max-width: 900px) {
-  .shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
+  .aero-sidebar {
     display: none;
   }
 
-  .topbar {
+  .main {
+    margin-left: 0;
+    padding: var(--space-5) var(--space-4) var(--space-7);
+  }
+
+  .aero-mobile-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1295,43 +1831,80 @@ input[type="range"] {
     padding: var(--space-3) var(--space-4);
   }
 
-  .topbar-brand {
+  .aero-mobile-bar-brand {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 15px;
+    letter-spacing: 0.02em;
   }
 
-  .topbar-nav {
-    display: flex;
-    gap: 2px;
-    overflow-x: auto;
-    padding: var(--space-2) var(--space-4);
-    background: var(--surface-sunken);
-    border-bottom: 1px solid var(--border-subtle);
-    position: sticky;
-    top: 49px;
-    z-index: 19;
-  }
-
-  .topbar-nav a {
-    flex-shrink: 0;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-decoration: none;
+  .aero-mobile-menu-btn {
+    background: transparent;
     border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
 
-  .topbar-nav a.active {
-    color: var(--accent);
-    border-color: rgba(133, 166, 204, 0.35);
-    background: var(--accent-surface);
+  .aero-mobile-menu-btn:hover {
+    background: var(--surface-raised);
+    color: var(--text);
   }
 
-  .main {
-    padding: var(--space-5) var(--space-4) var(--space-7);
+  .aero-mobile-menu-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+  }
+
+  .aero-mobile-panel {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: var(--surface-sunken);
+    padding: var(--space-5) var(--space-4);
+    overflow-y: auto;
+  }
+
+  .aero-mobile-panel .aero-sidebar-brand,
+  .aero-mobile-panel .aero-sidebar-nav,
+  .aero-mobile-panel .aero-sidebar-footer {
+    min-width: 0;
+  }
+
+  .aero-mobile-panel .aero-sidebar-link-label,
+  .aero-mobile-panel .aero-sidebar-footer,
+  .aero-mobile-panel .aero-sidebar-brand-text {
+    opacity: 1;
+  }
+
+  .aero-mobile-close {
+    align-self: flex-end;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-bottom: var(--space-4);
+  }
+
+  .aero-mobile-close svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
   }
 
   .grid-2,
@@ -1392,5 +1965,41 @@ input[type="range"] {
 @media (max-width: 500px) {
   .page-header h1 {
     font-size: 20px;
+  }
+}
+
+/* ============================================================
+   GLOBAL SCROLL PROGRESS
+   A thin instrument line, not a loading bar -- lower z-index than the
+   sidebar (40) so it never draws over it, and than the mobile panel (50).
+   ============================================================ */
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 35;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.scroll-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.scroll-progress.scrolling .scroll-progress-fill {
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress,
+  .scroll-progress-fill {
+    transition: none;
   }
 }

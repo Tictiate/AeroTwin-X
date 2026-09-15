@@ -3,19 +3,30 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
 /**
- * A stylized but mechanically coherent inline 4-cylinder engine: real slider-crank
- * kinematics drive piston/rod motion from a single rotating crankshaft angle, not
- * independent arbitrary animation. Geometry is intentionally simplified (low
- * segment-count primitives, no textures) -- a technical cutaway illustration, not a
- * CAD model.
+ * A stylized but mechanically coherent inline 4-cylinder aircraft engine: real
+ * slider-crank kinematics drive piston/rod motion from a single rotating
+ * crankshaft angle, not independent arbitrary animation. Geometry is a
+ * technical cutaway illustration (finned air-cooled barrels, rocker covers,
+ * exhaust risers, a prop-shaft stub) -- not a CAD model, but built to read
+ * immediately as a piston aircraft engine rather than stacked primitives.
  */
 
 const CRANK_RADIUS = 0.28;
 const ROD_LENGTH = 0.85;
 const CYL_XS = [-1.2, -0.4, 0.4, 1.2];
 const CYL_BASE_Y = 0.95;
-const HOUSING_COLOR = "#5b5e63";
-const METAL = { metalness: 0.55, roughness: 0.4 };
+
+// Neutral structural finish -- everything that ISN'T a fault-tinted surface
+// uses one of these, so the engine still looks considered while fully healthy.
+// envMapIntensity varies per finish so different components read as different
+// materials under the same baked reflection environment (matte painted case
+// vs. machined steel vs. dark composite), without touching any geometry.
+const GRAPHITE = { color: "#26282c", metalness: 0.5, roughness: 0.58, envMapIntensity: 0.6 };
+const ALUMINUM = { color: "#aab0b7", metalness: 0.74, roughness: 0.3, envMapIntensity: 1.1 };
+const STEEL = { color: "#d7dbe0", metalness: 0.9, roughness: 0.18, envMapIntensity: 1.35 };
+const DARK_STEEL = { color: "#34363b", metalness: 0.55, roughness: 0.48, envMapIntensity: 0.55 };
+const MACHINED_DARK = { color: "#3a3d43", metalness: 0.85, roughness: 0.26, envMapIntensity: 1.15 };
+const FASTENER = { color: "#57595e", metalness: 0.62, roughness: 0.32, envMapIntensity: 0.9 };
 
 export type SubsystemId = "crankshaft" | "cylinders" | "injectors" | "lubrication" | "sensor";
 
@@ -46,9 +57,12 @@ interface CylinderUnitProps {
   setHovered: (id: SubsystemId | null) => void;
 }
 
+const BARREL_RADIUS = 0.2;
+const FIN_YS = [0.22, 0.4, 0.58];
+
 function CylinderUnit({ x, phase, angleRef, visual, onSelect, hovered, setHovered }: CylinderUnitProps) {
-  const piston = useRef<THREE.Mesh>(null);
-  const rod = useRef<THREE.Mesh>(null);
+  const piston = useRef<THREE.Group>(null);
+  const rod = useRef<THREE.Group>(null);
 
   useFrame(() => {
     const theta = angleRef.current + phase;
@@ -73,14 +87,23 @@ function CylinderUnit({ x, phase, angleRef, visual, onSelect, hovered, setHovere
 
   return (
     <group>
-      {/* Cylinder block */}
-      <mesh position={[x, 0.55, 0]}>
-        <boxGeometry args={[0.42, 0.9, 0.42]} />
-        <meshStandardMaterial color={visual.cylinderColor} {...METAL} />
+      {/* Finned barrel -- the air-cooled-cylinder silhouette that reads as "aircraft engine" */}
+      <mesh position={[x, 0.5, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[BARREL_RADIUS, BARREL_RADIUS * 1.03, 0.84, 18]} />
+        <meshStandardMaterial color={visual.cylinderColor} metalness={0.6} roughness={0.4} envMapIntensity={0.9} />
       </mesh>
-      {/* Cylinder head */}
+      {FIN_YS.map((y) => (
+        <mesh key={y} position={[x, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[BARREL_RADIUS + 0.035, 0.022, 6, 20]} />
+          <meshStandardMaterial {...ALUMINUM} color="#565a60" />
+        </mesh>
+      ))}
+
+      {/* Rocker cover / cylinder head */}
       <mesh
-        position={[x, 1.08, 0]}
+        position={[x, 1.02, 0]}
+        castShadow
+        receiveShadow
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered("cylinders");
@@ -91,17 +114,32 @@ function CylinderUnit({ x, phase, angleRef, visual, onSelect, hovered, setHovere
           onSelect("cylinders");
         }}
       >
-        <boxGeometry args={[0.5, 0.18, 0.5]} />
+        <boxGeometry args={[0.5, 0.17, 0.5]} />
         <meshStandardMaterial
           color={visual.cylinderColor}
           emissive={visual.cylinderColor}
-          emissiveIntensity={0.25 + visual.thermalGlow * 0.5 + (isHovered ? 0.25 : 0)}
-          {...METAL}
+          emissiveIntensity={0.22 + visual.thermalGlow * 0.5 + (isHovered ? 0.25 : 0)}
+          metalness={0.7}
+          roughness={0.22}
+          envMapIntensity={1.1}
         />
       </mesh>
+      {[-0.19, 0.19].map((dx) => (
+        <mesh key={dx} position={[x + dx, 1.11, 0.19]}>
+          <cylinderGeometry args={[0.018, 0.018, 0.06, 8]} />
+          <meshStandardMaterial {...FASTENER} />
+        </mesh>
+      ))}
+
+      {/* Exhaust riser -- angled stub exiting the head, unaffected by fault state (structural detail only) */}
+      <mesh position={[x, 0.51, 0.39]} rotation={[2.4, 0, 0]}>
+        <cylinderGeometry args={[0.032, 0.04, 0.4, 10]} />
+        <meshStandardMaterial {...DARK_STEEL} />
+      </mesh>
+
       {/* Injector */}
       <mesh
-        position={[x, 1.32, 0]}
+        position={[x, 1.24, 0]}
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered("injectors");
@@ -112,24 +150,48 @@ function CylinderUnit({ x, phase, angleRef, visual, onSelect, hovered, setHovere
           onSelect("injectors");
         }}
       >
-        <cylinderGeometry args={[0.05, 0.06, 0.28, 12]} />
+        <cylinderGeometry args={[0.045, 0.055, 0.24, 12]} />
         <meshStandardMaterial
           color={visual.injectorColor}
           emissive={visual.injectorColor}
           emissiveIntensity={hovered === "injectors" ? 0.5 : 0.15}
-          {...METAL}
+          metalness={0.72}
+          roughness={0.24}
+          envMapIntensity={1}
         />
       </mesh>
-      {/* Piston (real slider-crank position) */}
-      <mesh ref={piston}>
-        <cylinderGeometry args={[0.17, 0.17, 0.16, 14]} />
-        <meshStandardMaterial color="#8a8d92" {...METAL} />
+      <mesh position={[x, 1.38, 0]}>
+        <coneGeometry args={[0.05, 0.08, 10]} />
+        <meshStandardMaterial color={visual.injectorColor} metalness={0.72} roughness={0.24} envMapIntensity={1} />
       </mesh>
-      {/* Connecting rod (real slider-crank orientation) */}
-      <mesh ref={rod}>
-        <boxGeometry args={[0.07, ROD_LENGTH, 0.07]} />
-        <meshStandardMaterial color="#9a9da2" metalness={0.6} roughness={0.3} />
-      </mesh>
+
+      {/* Piston -- real slider-crank position */}
+      <group ref={piston}>
+        <mesh>
+          <cylinderGeometry args={[0.165, 0.17, 0.15, 18]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+        <mesh position={[0, 0.082, 0]}>
+          <cylinderGeometry args={[0.15, 0.165, 0.015, 18]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+      </group>
+
+      {/* Connecting rod -- real slider-crank orientation, forged-look end caps */}
+      <group ref={rod}>
+        <mesh>
+          <boxGeometry args={[0.06, ROD_LENGTH, 0.06]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+        <mesh position={[0, ROD_LENGTH / 2 - 0.02, 0]}>
+          <cylinderGeometry args={[0.05, 0.05, 0.05, 12]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+        <mesh position={[0, -(ROD_LENGTH / 2 - 0.02), 0]}>
+          <cylinderGeometry args={[0.06, 0.06, 0.05, 12]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -174,6 +236,8 @@ export function EngineModel({
       {/* Crankcase -- open-front cutaway so the crankshaft is visible, not enclosed */}
       <mesh
         position={[0, -0.35, -0.35]}
+        castShadow
+        receiveShadow
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered("crankshaft");
@@ -185,31 +249,87 @@ export function EngineModel({
         }}
       >
         <boxGeometry args={[3.3, 0.55, 0.35]} />
-        <meshStandardMaterial color={visual.healthColor} emissive={visual.healthColor} emissiveIntensity={hovered === "crankshaft" ? 0.35 : 0.08} {...METAL} />
+        <meshStandardMaterial
+          color={visual.healthColor}
+          emissive={visual.healthColor}
+          emissiveIntensity={hovered === "crankshaft" ? 0.35 : 0.05}
+          metalness={0.32}
+          roughness={0.56}
+          envMapIntensity={0.65}
+        />
       </mesh>
-      <mesh position={[-1.65, -0.1, -0.35]}>
-        <boxGeometry args={[0.12, 1.1, 0.35]} />
-        <meshStandardMaterial color={HOUSING_COLOR} {...METAL} />
-      </mesh>
-      <mesh position={[1.65, -0.1, -0.35]}>
-        <boxGeometry args={[0.12, 1.1, 0.35]} />
-        <meshStandardMaterial color={HOUSING_COLOR} {...METAL} />
-      </mesh>
+      {/* Rounded case ends -- breaks the rectangular-block silhouette */}
+      {[-1.65, 1.65].map((x) => (
+        <mesh key={x} position={[x, -0.1, -0.35]}>
+          <cylinderGeometry args={[0.16, 0.19, 1.1, 14]} />
+          <meshStandardMaterial {...GRAPHITE} />
+        </mesh>
+      ))}
 
       {/* Crankshaft (rotating) */}
       <group ref={crankMesh}>
         <mesh rotation={[0, 0, Math.PI / 2]} position={[0, CYL_BASE_Y - ROD_LENGTH, 0]}>
-          <cylinderGeometry args={[0.11, 0.11, 3.1, 16]} />
-          <meshStandardMaterial color={visual.healthColor} {...METAL} />
+          <cylinderGeometry args={[0.105, 0.105, 3.1, 18]} />
+          <meshStandardMaterial color={visual.healthColor} metalness={0.88} roughness={0.16} envMapIntensity={1.2} />
         </mesh>
+        {/* Prop-shaft stub -- the crank's visible output, extending past the last cylinder */}
+        <mesh rotation={[0, 0, Math.PI / 2]} position={[1.92, CYL_BASE_Y - ROD_LENGTH, 0]}>
+          <cylinderGeometry args={[0.085, 0.085, 0.42, 14]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+        <mesh rotation={[0, 0, -Math.PI / 2]} position={[2.19, CYL_BASE_Y - ROD_LENGTH, 0]}>
+          <coneGeometry args={[0.13, 0.16, 12]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+
+        {/* Propeller -- hub + 2 blades, real RPM-driven by the same rotating group */}
+        <mesh position={[2.42, CYL_BASE_Y - ROD_LENGTH, 0]}>
+          <sphereGeometry args={[0.1, 14, 14]} />
+          <meshStandardMaterial {...STEEL} />
+        </mesh>
+        {[1, -1].map((sign) => (
+          <mesh
+            key={sign}
+            position={[2.42, CYL_BASE_Y - ROD_LENGTH + sign * 0.46, 0]}
+            rotation={[0, 0.3 * sign, 0]}
+          >
+            <boxGeometry args={[0.045, 0.82, 0.13]} />
+            <meshStandardMaterial {...DARK_STEEL} />
+          </mesh>
+        ))}
+
+        {/* Flywheel / accessory-drive disc at the rear, real RPM-driven */}
+        <mesh rotation={[0, 0, Math.PI / 2]} position={[-1.92, CYL_BASE_Y - ROD_LENGTH, 0]}>
+          <cylinderGeometry args={[0.34, 0.34, 0.09, 26]} />
+          <meshStandardMaterial {...MACHINED_DARK} />
+        </mesh>
+        {Array.from({ length: 16 }, (_, i) => {
+          const a = (i / 16) * Math.PI * 2;
+          const ty = CYL_BASE_Y - ROD_LENGTH + 0.36 * Math.cos(a);
+          const tz = 0.36 * Math.sin(a);
+          return (
+            <mesh key={i} position={[-1.92, ty, tz]}>
+              <boxGeometry args={[0.05, 0.05, 0.045]} />
+              <meshStandardMaterial {...FASTENER} />
+            </mesh>
+          );
+        })}
+
         {throws.map(({ x, phase }, i) => {
           const y = CRANK_RADIUS * Math.cos(phase);
           const z = CRANK_RADIUS * Math.sin(phase);
           return (
-            <mesh key={i} position={[x, CYL_BASE_Y - ROD_LENGTH + y, z]}>
-              <cylinderGeometry args={[0.09, 0.09, 0.3, 10]} />
-              <meshStandardMaterial color="#75787d" {...METAL} />
-            </mesh>
+            <group key={i}>
+              {/* Crank web / counterweight disc */}
+              <mesh rotation={[0, 0, Math.PI / 2]} position={[x, CYL_BASE_Y - ROD_LENGTH, 0]}>
+                <cylinderGeometry args={[0.2, 0.2, 0.055, 16]} />
+                <meshStandardMaterial {...MACHINED_DARK} />
+              </mesh>
+              <mesh position={[x, CYL_BASE_Y - ROD_LENGTH + y, z]}>
+                <cylinderGeometry args={[0.085, 0.085, 0.3, 10]} />
+                <meshStandardMaterial {...STEEL} />
+              </mesh>
+            </group>
           );
         })}
       </group>
@@ -227,9 +347,11 @@ export function EngineModel({
         />
       ))}
 
-      {/* Oil sump -- lubrication subsystem, at the base rather than a floating ring */}
+      {/* Oil sump -- stepped saddle + pan silhouette instead of a single flat slab */}
       <mesh
-        position={[0, -0.68, -0.1]}
+        position={[0, -0.62, -0.12]}
+        castShadow
+        receiveShadow
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered("lubrication");
@@ -240,19 +362,45 @@ export function EngineModel({
           onSelect("lubrication");
         }}
       >
-        <boxGeometry args={[2.6, 0.26, 0.75]} />
+        <boxGeometry args={[2.7, 0.14, 0.78]} />
+        <meshStandardMaterial
+          color={visual.lubricationColor}
+          emissive={visual.lubricationColor}
+          emissiveIntensity={0.12 + visual.oilGlow * 0.35 + (hovered === "lubrication" ? 0.3 : 0)}
+          metalness={0.3}
+          roughness={0.52}
+          envMapIntensity={0.7}
+        />
+      </mesh>
+      <mesh
+        position={[0, -0.78, -0.1]}
+        castShadow
+        receiveShadow
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered("lubrication");
+        }}
+        onPointerOut={() => setHovered(null)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect("lubrication");
+        }}
+      >
+        <boxGeometry args={[1.9, 0.2, 0.66]} />
         <meshStandardMaterial
           color={visual.lubricationColor}
           emissive={visual.lubricationColor}
           emissiveIntensity={0.15 + visual.oilGlow * 0.4 + (hovered === "lubrication" ? 0.3 : 0)}
           metalness={0.3}
-          roughness={0.5}
+          roughness={0.52}
+          envMapIntensity={0.7}
         />
       </mesh>
 
-      {/* Sensor node -- mounted on the housing, not floating in space */}
+      {/* Sensor node -- compact potted housing mounted flush on the case, positioned
+          clear of the barrel/fin silhouette from the default camera angle */}
       <mesh
-        position={[1.75, 0.5, -0.3]}
+        position={[-1.78, 0.8, 0.18]}
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered("sensor");
@@ -263,18 +411,21 @@ export function EngineModel({
           onSelect("sensor");
         }}
       >
-        <sphereGeometry args={[0.09, 14, 14]} />
+        <sphereGeometry args={[0.085, 14, 14]} />
         <meshStandardMaterial
           color={visual.sensorColor}
           emissive={visual.sensorColor}
           emissiveIntensity={hovered === "sensor" ? 0.7 : 0.2}
-          metalness={0.2}
-          roughness={0.4}
+          metalness={0.25} roughness={0.4}
         />
       </mesh>
-      <mesh position={[1.75, 0.3, -0.3]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.35, 8]} />
-        <meshStandardMaterial color="#4a4d51" metalness={0.4} roughness={0.5} />
+      <mesh position={[-1.78, 0.66, 0.18]}>
+        <cylinderGeometry args={[0.022, 0.03, 0.2, 8]} />
+        <meshStandardMaterial {...DARK_STEEL} />
+      </mesh>
+      <mesh position={[-1.78, 0.57, 0.18]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.05, 0.012, 6, 16]} />
+        <meshStandardMaterial {...FASTENER} />
       </mesh>
     </group>
   );

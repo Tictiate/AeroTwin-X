@@ -1,5 +1,5 @@
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { ContactShadows, Environment, GradientTexture, Html, Lightformer, Line, OrbitControls } from "@react-three/drei";
 import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { HealthResult, Telemetry } from "../../api/types";
 import { humanize, statusTier } from "../../lib/status";
@@ -42,6 +42,8 @@ const SUBSYSTEM_INFO: Record<SubsystemId, { label: string; description: string }
   },
 };
 
+type TwinVariant = "compact" | "hero" | "full";
+
 function hasWebGL(): boolean {
   try {
     const c = document.createElement("canvas");
@@ -67,19 +69,73 @@ class TwinErrorBoundary extends Component<{ children: ReactNode }, { failed: boo
   }
 }
 
-function Controls({ compact }: { compact: boolean }) {
+function Controls({ autoRotate }: { autoRotate: boolean }) {
+  return (
+    <OrbitControls
+      target={[-0.05, -0.05, 0]}
+      enablePan={!autoRotate}
+      enableZoom
+      minDistance={2.4}
+      maxDistance={7}
+      maxPolarAngle={Math.PI * 0.62}
+      minPolarAngle={Math.PI * 0.18}
+      autoRotate={autoRotate}
+      autoRotateSpeed={0.6}
+    />
+  );
+}
+
+/** Small procedural light panels baked once into a local reflection map --
+ *  no external HDRI, no network fetch, just enough for believable metal
+ *  sheen on the steel/aluminum parts that flat directional lights can't give. */
+function ReflectionEnvironment() {
+  return (
+    <Environment resolution={64} frames={1}>
+      <Lightformer form="rect" intensity={2.2} color="#dbe6f2" position={[3, 4, 3]} scale={[5, 5, 1]} rotation={[-Math.PI / 3, Math.PI / 5, 0]} />
+      <Lightformer form="rect" intensity={0.9} color="#88a8d8" position={[-4, 1.5, -2]} scale={[4, 4, 1]} rotation={[0, Math.PI / 2.3, 0]} />
+      <Lightformer form="ring" intensity={0.6} color="#0d0f12" position={[0, -3, 0]} scale={10} />
+    </Environment>
+  );
+}
+
+interface Callout {
+  id: string;
+  anchor: [number, number, number];
+  label: [number, number, number];
+  title: string;
+  value: string;
+}
+
+function CalloutLayer({ telemetry, activeFault }: { telemetry: Telemetry; activeFault: string }) {
+  const callouts: Callout[] = [
+    { id: "egt", anchor: [0.4, 1.11, 0], label: [0.85, 1.55, 0.4], title: "EGT", value: `${telemetry.egt.toFixed(0)} °C` },
+    { id: "oil", anchor: [0, -0.68, 0.26], label: [-0.55, -1.1, 0.55], title: "Oil Pressure", value: `${telemetry.oilPressure.toFixed(0)} kPa` },
+    { id: "rpm", anchor: [1.55, 0.1, 0], label: [2.0, 0.5, 0.4], title: "RPM", value: `${Math.round(telemetry.rpm)}` },
+  ];
+
   return (
     <>
-      <OrbitControls
-        enablePan={!compact}
-        enableZoom
-        minDistance={2.4}
-        maxDistance={7}
-        maxPolarAngle={Math.PI * 0.62}
-        minPolarAngle={Math.PI * 0.18}
-        autoRotate={compact}
-        autoRotateSpeed={0.6}
-      />
+      {callouts.map((c) => (
+        <group key={c.id}>
+          <mesh position={c.anchor}>
+            <sphereGeometry args={[0.014, 8, 8]} />
+            <meshBasicMaterial color="#8fb2d9" transparent opacity={0.85} toneMapped={false} />
+          </mesh>
+          <Line points={[c.anchor, c.label]} color="#6f8aab" lineWidth={1} transparent opacity={0.45} />
+          <Html position={c.label} center>
+            <div className="twin-callout">
+              <span className="twin-callout-label">{c.title}</span>
+              <span className="twin-callout-value mono">{c.value}</span>
+            </div>
+          </Html>
+        </group>
+      ))}
+      <Html position={[-0.4, 1.7, 0.35]} center>
+        <div className="twin-callout twin-callout-fault" data-active={activeFault !== "NORMAL"}>
+          <span className="twin-callout-label">Active Fault</span>
+          <span className="twin-callout-value mono">{humanize(activeFault)}</span>
+        </div>
+      </Html>
     </>
   );
 }
@@ -88,13 +144,17 @@ export function EngineTwin({
   telemetry,
   health,
   activeFault,
-  compact = false,
+  variant = "full",
 }: {
   telemetry: Telemetry | null;
   health: HealthResult | null;
   activeFault: string;
-  compact?: boolean;
+  variant?: TwinVariant;
 }) {
+  const compact = variant === "compact";
+  const showChrome = variant === "full";
+  const showCallouts = variant !== "compact";
+
   const webglOk = useMemo(() => hasWebGL(), []);
   const [selected, setSelected] = useState<SubsystemId | null>(null);
   const [hovered, setHovered] = useState<SubsystemId | null>(null);
@@ -139,8 +199,8 @@ export function EngineTwin({
 
   return (
     <div>
-      <div className={`twin-stage ${compact ? "compact" : ""}`}>
-        <div className={`twin-canvas ${compact ? "compact" : ""}`}>
+      <div className={`twin-stage ${variant}`}>
+        <div className={`twin-canvas ${variant}`}>
           {!webglOk ? (
             <div className="state-block">
               <span className="headline">3D unavailable</span>
@@ -149,11 +209,30 @@ export function EngineTwin({
           ) : (
             <TwinErrorBoundary>
               <Suspense fallback={<div className="state-block">Loading twin…</div>}>
-                <Canvas key={resetKey} camera={{ position: [3.4, 2.2, 4.2], fov: 40 }} dpr={[1, 1.5]}>
-                  <color attach="background" args={["#101214"]} />
-                  <ambientLight intensity={0.6} />
-                  <directionalLight position={[4, 6, 5]} intensity={1.15} />
-                  <directionalLight position={[-3, -1, -4]} intensity={0.25} />
+                <Canvas key={resetKey} camera={{ position: [3.25, 2, 4.25], fov: 36 }} dpr={[1, 1.5]} shadows>
+                  <color attach="background" args={["#0d0f12"]} />
+                  <mesh position={[0, 0.4, -5.2]}>
+                    <planeGeometry args={[16, 10]} />
+                    <meshBasicMaterial toneMapped={false}>
+                      <GradientTexture stops={[0, 1]} colors={["#181c21", "#08090b"]} size={512} />
+                    </meshBasicMaterial>
+                  </mesh>
+                  <ReflectionEnvironment />
+                  <hemisphereLight args={["#5b6b80", "#0a0b0d", 0.38]} />
+                  {/* Key -- primary form-revealing light, sharp shadow for cylinder/piston depth */}
+                  <directionalLight
+                    position={[4, 6, 4]}
+                    intensity={1.55}
+                    castShadow
+                    shadow-mapSize={[2048, 2048]}
+                    shadow-bias={-0.0004}
+                  >
+                    <orthographicCamera attach="shadow-camera" args={[-3.5, 3.5, 3.5, -3.5, 0.5, 14]} />
+                  </directionalLight>
+                  {/* Fill -- soft cool bounce, keeps shadow side legible without flattening it */}
+                  <directionalLight position={[-4, 1.6, -2.6]} intensity={0.26} color="#9fbfe8" />
+                  {/* Rim -- grazing edge light from behind, separates the silhouette from the backdrop */}
+                  <directionalLight position={[-2.4, 2.2, -5.2]} intensity={0.75} color="#cfe0f4" />
                   <EngineModel
                     rpm={rpm}
                     vibration={vibration}
@@ -162,8 +241,9 @@ export function EngineTwin({
                     hovered={hovered}
                     setHovered={setHovered}
                   />
-                  {!compact && <Controls compact={false} />}
-                  {compact && <Controls compact />}
+                  {showCallouts && telemetry && <CalloutLayer telemetry={telemetry} activeFault={activeFault} />}
+                  <ContactShadows position={[0, -1.02, 0]} opacity={0.72} scale={7.5} blur={2.1} far={1.6} resolution={512} color="#000000" />
+                  <Controls autoRotate={compact} />
                 </Canvas>
               </Suspense>
             </TwinErrorBoundary>
@@ -205,7 +285,7 @@ export function EngineTwin({
         )}
       </div>
 
-      {!compact && webglOk && (
+      {showChrome && webglOk && (
         <div className="twin-toolbar">
           <span className="eyebrow">Drag to orbit · scroll to zoom · shift-drag to pan</span>
           <button className="btn btn-ghost" onClick={() => setResetKey((k) => k + 1)}>
@@ -214,7 +294,7 @@ export function EngineTwin({
         </div>
       )}
 
-      {!compact && (
+      {showChrome && (
         <div className="twin-legend">
           {(Object.keys(SUBSYSTEM_INFO) as SubsystemId[]).map((id) => (
             <button
@@ -228,7 +308,7 @@ export function EngineTwin({
         </div>
       )}
 
-      {!compact && (
+      {showChrome && (
         <p className="twin-disclaimer">
           Real-time 3D visualization of computational twin state — not a CFD simulation, not a claim of physical
           geometry accuracy. "Active fault" reflects the live simulator's own fault-control state, not a diagnosis —

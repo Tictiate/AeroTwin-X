@@ -1,5 +1,6 @@
 import { useAppData } from "../context/AppDataContext";
 import { Bar } from "../components/Bar";
+import { HealthGauge } from "../components/HealthGauge";
 import { humanize, statusTier } from "../lib/status";
 import { deriveAdvisory } from "../lib/advisory";
 
@@ -30,17 +31,12 @@ export default function Reliability() {
             <div className="state-block"><span className="headline">Health unavailable</span></div>
           ) : (
             <div className="grid-2" style={{ alignItems: "center", gap: "var(--space-7)" }}>
-              <div className="metric-hero" style={{ alignItems: "flex-start", textAlign: "left" }}>
-                <span className="eyebrow">Engine Health</span>
-                <div className="value" data-tier={statusTier(health.status)}>
-                  {health.overallHealth.toFixed(1)}
-                  <small>/ 100</small>
-                </div>
-                <span className="status-tag" data-tier={statusTier(health.status)}>
-                  <span>{humanize(health.status)}</span>
-                </span>
-                <span className="note">Trend: {humanize(health.trend.direction)} ({health.trend.ratePerHour.toFixed(2)}/hr)</span>
-              </div>
+              <HealthGauge
+                value={health.overallHealth}
+                statusLabel={humanize(health.status)}
+                tier={statusTier(health.status)}
+                note={`Trend: ${humanize(health.trend.direction)} (${health.trend.ratePerHour.toFixed(2)}/hr)`}
+              />
               <div>
                 {Object.entries(health.subsystems).map(([name, score]) => (
                   <Bar key={name} label={humanize(name)} value={score} tier={statusTier(score >= 90 ? "HEALTHY" : score >= 75 ? "CAUTION" : score >= 50 ? "DEGRADED" : "CRITICAL")} formatValue={(v) => v.toFixed(0)} />

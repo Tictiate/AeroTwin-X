@@ -4,8 +4,11 @@ import { StatusPill } from "../components/StatusPill";
 import { ActualVsExpected } from "../components/ActualVsExpected";
 import { humanize, statusTier } from "../lib/status";
 
+const ANOMALY_THRESHOLD = 0.6124;
+const GAUGE_MAX = 1.05;
+
 export default function Diagnostics() {
-  const { snapshot, diagnostics } = useAppData();
+  const { snapshot, snapshotHistory, diagnostics } = useAppData();
 
   if (!snapshot) {
     return (
@@ -22,9 +25,11 @@ export default function Diagnostics() {
     );
   }
 
-  const { analysis, health, telemetry, physicsPrediction, residuals } = snapshot;
+  const { analysis, health } = snapshot;
   const probabilities = Object.entries(analysis.faultProbabilities).sort((a, b) => b[1] - a[1]);
   const topFault = probabilities[0];
+  const gateOpen = analysis.anomaly;
+  const headline = gateOpen ? humanize(analysis.predictedFault) : "No Confirmed Fault";
 
   return (
     <>
@@ -37,31 +42,50 @@ export default function Diagnostics() {
         </p>
       </div>
 
-      <div className="grid-2" style={{ marginBottom: "var(--space-6)" }}>
-        <div className="panel">
-          <span className="eyebrow">Current Diagnosis</span>
-          <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 10 }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600 }}>{humanize(topFault[0])}</span>
-            <span className="mono" style={{ color: "var(--text-tertiary)" }}>{(topFault[1] * 100).toFixed(0)}% classifier confidence</span>
+      <div className="panel diagnosis-block" style={{ marginBottom: "var(--space-6)" }}>
+        <div className="diagnosis-block-main">
+          <span className="eyebrow">Current System State</span>
+          <div style={{ marginTop: 10 }}>
+            <span
+              style={{ fontFamily: "var(--font-mono)", fontSize: 30, fontWeight: 600 }}
+              data-tier={gateOpen ? "degraded" : "healthy"}
+            >
+              {headline}
+            </span>
           </div>
           <div className="data-row" style={{ marginTop: 12 }}>
-            <span className="label">Predicted fault (gated)</span>
-            <span className="value">{humanize(analysis.predictedFault)}</span>
+            <span className="label">Top classifier signal</span>
+            <span className="value">
+              {humanize(topFault[0])} · {(topFault[1] * 100).toFixed(0)}%
+            </span>
           </div>
           <div className="data-row">
             <span className="label">Anomaly gate</span>
-            <span className="value">{analysis.anomaly ? "OPEN" : "CLOSED"}</span>
+            <span className="value">{gateOpen ? "OPEN" : "CLOSED"}</span>
           </div>
         </div>
 
-        <div className="panel">
-          <span className="eyebrow">Anomaly Score</span>
-          <div style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 40, fontWeight: 600, lineHeight: 1 }}>
+        <div className="diagnosis-block-gauge">
+          <div className="gauge-readout">
+            <span className="eyebrow">Anomaly Score</span>
+            <span className="gauge-threshold-label">
+              Threshold <b className="mono">{ANOMALY_THRESHOLD}</b>
+            </span>
+          </div>
+          <div className="gauge-score mono" data-tier={analysis.anomaly ? "degraded" : "healthy"}>
             {analysis.anomalyScore.toFixed(3)}
           </div>
-          <p className="note" style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 8 }}>
-            Threshold 0.6124 (95th percentile of healthy training scores) — deliberately conservative, not lowered to
-            manufacture detections.
+          <div className="gauge-track">
+            <div className="gauge-zone-warn" style={{ left: `${(ANOMALY_THRESHOLD / GAUGE_MAX) * 100}%` }} />
+            <div className="gauge-threshold-tick" style={{ left: `${(ANOMALY_THRESHOLD / GAUGE_MAX) * 100}%` }} />
+            <div
+              className={`gauge-marker ${analysis.anomaly ? "open" : ""}`}
+              style={{ left: `${Math.min(100, (analysis.anomalyScore / GAUGE_MAX) * 100)}%` }}
+            />
+          </div>
+          <p className="note" style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 10 }}>
+            95th percentile of healthy training scores — deliberately conservative, not lowered to manufacture
+            detections.
           </p>
         </div>
       </div>
@@ -71,14 +95,15 @@ export default function Diagnostics() {
           <h2>Fault Probability</h2>
         </div>
         <div className="panel">
-          {probabilities.map(([fault, prob]) => (
-            <Bar
-              key={fault}
-              label={humanize(fault)}
-              value={prob * 100}
-              tier={fault === analysis.predictedFault && analysis.anomaly ? "degraded" : "healthy"}
-              formatValue={(v) => `${v.toFixed(0)}%`}
-            />
+          {probabilities.map(([fault, prob], i) => (
+            <div key={fault} className={i === 0 ? "fault-prob-lead" : "fault-prob-rest"}>
+              <Bar
+                label={humanize(fault)}
+                value={prob * 100}
+                tier={fault === analysis.predictedFault && analysis.anomaly ? "degraded" : "healthy"}
+                formatValue={(v) => `${v.toFixed(0)}%`}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -88,15 +113,27 @@ export default function Diagnostics() {
         <div className="disclosure-body">
           {analysis.explanation?.explanationAvailable ? (
             <>
-              {analysis.explanation.topContributors.map((c) => (
-                <div className="contrib-item" key={c.feature}>
-                  <span className="feature-name">{c.feature}</span>
-                  <span className={c.direction === "TOWARD_FAULT" ? "toward" : "away"}>
-                    {c.shapValue >= 0 ? "+" : ""}
-                    {c.shapValue.toFixed(3)}
-                  </span>
-                </div>
-              ))}
+              {(() => {
+                const maxAbsShap = Math.max(
+                  ...analysis.explanation.topContributors.map((c) => Math.abs(c.shapValue)),
+                  0.0001
+                );
+                return analysis.explanation.topContributors.map((c) => (
+                  <div className="contrib-item" key={c.feature}>
+                    <span className="feature-name">{c.feature}</span>
+                    <div className="diverge-track">
+                      <div
+                        className={`diverge-fill ${c.shapValue >= 0 ? "pos" : "neg"}`}
+                        style={{ width: `${(Math.min(1, Math.abs(c.shapValue) / maxAbsShap) * 50).toFixed(1)}%` }}
+                      />
+                    </div>
+                    <span className={c.direction === "TOWARD_FAULT" ? "toward" : "away"}>
+                      {c.shapValue >= 0 ? "+" : ""}
+                      {c.shapValue.toFixed(3)}
+                    </span>
+                  </div>
+                ));
+              })()}
               {analysis.explanation.operatorSummary && (
                 <p style={{ marginTop: 10, fontSize: 13, color: "var(--text-secondary)" }}>{analysis.explanation.operatorSummary}</p>
               )}
@@ -112,7 +149,7 @@ export default function Diagnostics() {
       <details className="disclosure section">
         <summary>Physics Residuals — Actual vs Expected</summary>
         <div className="disclosure-body">
-          <ActualVsExpected telemetry={telemetry} physicsPrediction={physicsPrediction} residuals={residuals} />
+          <ActualVsExpected history={snapshotHistory} />
         </div>
       </details>
 

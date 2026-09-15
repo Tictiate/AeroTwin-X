@@ -67,3 +67,19 @@ export function IconChevron({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconMenu({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...base}>
+      <path d="M3 5.5h14M3 10h14M3 14.5h14" />
+    </svg>
+  );
+}
+
+export function IconClose({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} {...base}>
+      <path d="M5 5l10 10M15 5 5 15" />
+    </svg>
+  );
+}
