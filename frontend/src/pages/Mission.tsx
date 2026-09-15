@@ -82,21 +82,24 @@ function FaultTypeSelect({ value, onChange, label }: { value: FaultTypeOption; o
 
 function PhaseStrip({ profile }: { profile: MissionProfile }) {
   return (
-    <div className="grid-auto" style={{ gap: "var(--space-3)" }}>
-      {profile.phases.map((phase) => (
-        <div className="panel" key={phase.phase} style={{ padding: "var(--space-3) var(--space-4)" }}>
-          <span className="eyebrow">{phase.phase}</span>
-          <div className="data-row" style={{ padding: "4px 0" }}>
-            <span className="label">Duration</span>
-            <span className="value">{Math.round(phase.durationSeconds / 60)} min</span>
-          </div>
-          <div className="data-row" style={{ padding: "4px 0" }}>
-            <span className="label">Altitude</span>
-            <span className="value">{Math.round(phase.altitudeEnd)} ft</span>
-          </div>
-          <div className="data-row" style={{ padding: "4px 0" }}>
-            <span className="label">Ambient</span>
-            <span className="value">{phase.ambientTemperature.toFixed(0)}&deg;C</span>
+    <div className="phase-flow">
+      {profile.phases.map((phase, i) => (
+        <div className="phase-flow-node" key={phase.phase}>
+          {i > 0 && <span className="phase-flow-connector" aria-hidden="true" />}
+          <div className="phase-flow-card">
+            <span className="eyebrow">{phase.phase}</span>
+            <div className="data-row" style={{ padding: "4px 0" }}>
+              <span className="label">Duration</span>
+              <span className="value">{Math.round(phase.durationSeconds / 60)} min</span>
+            </div>
+            <div className="data-row" style={{ padding: "4px 0" }}>
+              <span className="label">Altitude</span>
+              <span className="value">{Math.round(phase.altitudeEnd)} ft</span>
+            </div>
+            <div className="data-row" style={{ padding: "4px 0" }}>
+              <span className="label">Ambient</span>
+              <span className="value">{phase.ambientTemperature.toFixed(0)}&deg;C</span>
+            </div>
           </div>
         </div>
       ))}
@@ -229,13 +232,20 @@ export default function Mission() {
       <div className="section">
         <div className="section-head">
           <h2>Mission Simulation</h2>
-          <div className="segmented">
-            {(Object.keys(PRESET_LABELS) as PresetKey[]).map((key) => (
-              <button key={key} className={presetKey === key ? "active" : ""} onClick={() => setPresetKey(key)}>
-                {PRESET_LABELS[key]}
-              </button>
-            ))}
-          </div>
+        </div>
+
+        <div className="mission-preset-grid">
+          {(Object.keys(PRESET_LABELS) as PresetKey[]).map((key) => (
+            <button
+              key={key}
+              className={`mission-preset-card ${presetKey === key ? "active" : ""}`}
+              onClick={() => setPresetKey(key)}
+              aria-pressed={presetKey === key}
+            >
+              <span className="mission-preset-name">{PRESET_LABELS[key]}</span>
+              <span className="mission-preset-assumptions">{PRESET_ASSUMPTIONS[key]}</span>
+            </button>
+          ))}
         </div>
 
         <div className="panel">
@@ -244,10 +254,6 @@ export default function Mission() {
 
           {profile && activeProfile && (
             <>
-              <p className="note" style={{ color: "var(--text-tertiary)", fontSize: 12.5, marginBottom: 12 }}>
-                {PRESET_ASSUMPTIONS[presetKey]}
-              </p>
-
               <PhaseStrip profile={activeProfile} />
 
               <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-5)", marginTop: "var(--space-5)" }}>

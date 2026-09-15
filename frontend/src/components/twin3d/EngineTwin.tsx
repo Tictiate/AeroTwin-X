@@ -1,9 +1,11 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { Component, Suspense, useMemo, useState, type ReactNode } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { HealthResult, Telemetry } from "../../api/types";
 import { humanize, statusTier } from "../../lib/status";
+import { StatusPill } from "../StatusPill";
 import { EngineModel, type EngineVisualState, type SubsystemId } from "./EngineModel";
+import { isSynchronized, TwinSyncSequence, useTwinSyncFlags } from "./TwinSyncSequence";
 
 const TIER_COLOR: Record<string, string> = {
   healthy: "#52b788",
@@ -98,6 +100,27 @@ export function EngineTwin({
   const [hovered, setHovered] = useState<SubsystemId | null>(null);
   const [resetKey, setResetKey] = useState(0);
 
+  const syncFlags = useTwinSyncFlags();
+  const synchronized = isSynchronized(syncFlags);
+  const wasSynchronized = useRef(synchronized);
+  const [showSyncOverlay, setShowSyncOverlay] = useState(!synchronized);
+  const [justSynchronized, setJustSynchronized] = useState(false);
+
+  useEffect(() => {
+    if (synchronized && !wasSynchronized.current) {
+      wasSynchronized.current = true;
+      setJustSynchronized(true);
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const t = setTimeout(() => setShowSyncOverlay(false), reduced ? 0 : 900);
+      return () => clearTimeout(t);
+    }
+    if (!synchronized) {
+      wasSynchronized.current = false;
+      setJustSynchronized(false);
+      setShowSyncOverlay(true);
+    }
+  }, [synchronized]);
+
   const healthColor = TIER_COLOR[statusTier(health?.status ?? null)] ?? NEUTRAL;
   const rpm = telemetry?.rpm ?? 0;
   const vibration = telemetry?.vibration ?? 0;
@@ -116,37 +139,68 @@ export function EngineTwin({
 
   return (
     <div>
-      <div className={`twin-canvas ${compact ? "compact" : ""}`}>
-        {!webglOk ? (
-          <div className="state-block">
-            <span className="headline">3D unavailable</span>
-            WebGL is not supported in this browser. The rest of the dashboard is unaffected.
+      <div className={`twin-stage ${compact ? "compact" : ""}`}>
+        <div className={`twin-canvas ${compact ? "compact" : ""}`}>
+          {!webglOk ? (
+            <div className="state-block">
+              <span className="headline">3D unavailable</span>
+              WebGL is not supported in this browser. The rest of the dashboard is unaffected.
+            </div>
+          ) : (
+            <TwinErrorBoundary>
+              <Suspense fallback={<div className="state-block">Loading twin…</div>}>
+                <Canvas key={resetKey} camera={{ position: [3.4, 2.2, 4.2], fov: 40 }} dpr={[1, 1.5]}>
+                  <color attach="background" args={["#101214"]} />
+                  <ambientLight intensity={0.6} />
+                  <directionalLight position={[4, 6, 5]} intensity={1.15} />
+                  <directionalLight position={[-3, -1, -4]} intensity={0.25} />
+                  <EngineModel
+                    rpm={rpm}
+                    vibration={vibration}
+                    visual={visual}
+                    onSelect={setSelected}
+                    hovered={hovered}
+                    setHovered={setHovered}
+                  />
+                  {!compact && <Controls compact={false} />}
+                  {compact && <Controls compact />}
+                </Canvas>
+              </Suspense>
+            </TwinErrorBoundary>
+          )}
+          {showSyncOverlay && webglOk && (
+            <div className="twin-overlay">
+              <TwinSyncSequence flags={syncFlags} justSynchronized={justSynchronized} />
+            </div>
+          )}
+        </div>
+
+        {!compact && webglOk && (
+          <div className="twin-readout" aria-hidden="true">
+            <div className="twin-readout-item">
+              <span className="label">RPM</span>
+              <span className="value">{telemetry ? Math.round(telemetry.rpm) : "—"}</span>
+            </div>
+            <div className="twin-readout-item">
+              <span className="label">Health</span>
+              <span className="value"><StatusPill value={health?.status ?? null} /></span>
+            </div>
+            <div className="twin-readout-item">
+              <span className="label">Active fault</span>
+              <span className="value">{humanize(activeFault)}</span>
+            </div>
           </div>
-        ) : (
-          <TwinErrorBoundary>
-            <Suspense fallback={<div className="state-block">Loading twin…</div>}>
-              <Canvas key={resetKey} camera={{ position: [3.4, 2.2, 4.2], fov: 40 }} dpr={[1, 1.5]}>
-                <color attach="background" args={["#101214"]} />
-                <ambientLight intensity={0.6} />
-                <directionalLight position={[4, 6, 5]} intensity={1.15} />
-                <directionalLight position={[-3, -1, -4]} intensity={0.25} />
-                <EngineModel
-                  rpm={rpm}
-                  vibration={vibration}
-                  visual={visual}
-                  onSelect={setSelected}
-                  hovered={hovered}
-                  setHovered={setHovered}
-                />
-                {!compact && <Controls compact={false} />}
-                {compact && <Controls compact />}
-              </Canvas>
-            </Suspense>
-          </TwinErrorBoundary>
         )}
-        {!telemetry && webglOk && (
-          <div className="twin-overlay">
-            <div className="state-block">Waiting for telemetry…</div>
+
+        {!compact && selected && (
+          <div className="twin-inspector" role="dialog" aria-label={SUBSYSTEM_INFO[selected].label}>
+            <div className="twin-info-head">
+              <span className="eyebrow">{SUBSYSTEM_INFO[selected].label}</span>
+              <button className="btn btn-ghost" onClick={() => setSelected(null)} aria-label="Close">
+                ✕
+              </button>
+            </div>
+            <p>{SUBSYSTEM_INFO[selected].description}</p>
           </div>
         )}
       </div>
@@ -171,18 +225,6 @@ export function EngineTwin({
               {SUBSYSTEM_INFO[id].label}
             </button>
           ))}
-        </div>
-      )}
-
-      {!compact && selected && (
-        <div className="twin-info panel">
-          <div className="twin-info-head">
-            <span className="eyebrow">{SUBSYSTEM_INFO[selected].label}</span>
-            <button className="btn btn-ghost" onClick={() => setSelected(null)} aria-label="Close">
-              ✕
-            </button>
-          </div>
-          <p>{SUBSYSTEM_INFO[selected].description}</p>
         </div>
       )}
 

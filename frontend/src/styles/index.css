@@ -800,10 +800,15 @@ input[type="range"] {
    3D DIGITAL TWIN
    ============================================================ */
 
+.twin-stage {
+  position: relative;
+}
+
 .twin-canvas {
   position: relative;
   width: 100%;
-  height: 460px;
+  height: min(70vh, 760px);
+  min-height: 420px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
   overflow: hidden;
@@ -812,6 +817,7 @@ input[type="range"] {
 
 .twin-canvas.compact {
   height: 220px;
+  min-height: 0;
   cursor: grab;
 }
 
@@ -827,6 +833,123 @@ input[type="range"] {
   align-items: center;
   justify-content: center;
   background: rgba(12, 13, 15, 0.55);
+}
+
+/* Slim readout docked over the canvas -- replaces the old stat-card row so
+   the model itself gets the vertical space. */
+.twin-readout {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background: rgba(20, 22, 24, 0.72);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+.twin-readout-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  font-size: 12px;
+}
+
+.twin-readout-item .label {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.twin-readout-item .value {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+/* Contextual inspector: overlays the canvas instead of pushing page content
+   down, so selecting a component stays a direct-manipulation interaction. */
+.twin-inspector {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 6;
+  width: 280px;
+  max-width: calc(100% - var(--space-6));
+  max-height: calc(100% - var(--space-6));
+  overflow-y: auto;
+  background: rgba(20, 22, 24, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  animation: twin-inspector-in 0.18s ease;
+}
+
+@keyframes twin-inspector-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Twin sync sequence: honest, real-signal-driven initialization state. */
+.twin-sync {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.twin-sync-step {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  transition: color 0.2s ease;
+}
+
+.twin-sync-step.ok {
+  color: var(--good);
+}
+
+.twin-sync.done {
+  flex-direction: row;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--good);
+  animation: twin-sync-done-in 0.3s ease;
+}
+
+.twin-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 4px var(--good-surface);
+}
+
+@keyframes twin-sync-done-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .twin-toolbar {
@@ -906,6 +1029,248 @@ input[type="range"] {
 }
 
 /* ============================================================
+   ACTUAL VS EXPECTED
+   Signature visualization: physics-expected value as a fixed
+   centerline, live actual value offset by its real residual.
+   ============================================================ */
+
+.avx-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.avx-row {
+  display: grid;
+  grid-template-columns: 88px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 12.5px;
+}
+
+.avx-label {
+  color: var(--text-secondary);
+}
+
+.avx-track {
+  position: relative;
+  height: 20px;
+  background: var(--surface-raised);
+  border-radius: 10px;
+}
+
+.avx-expected-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  background: var(--text-tertiary);
+  transform: translate(-50%, -50%);
+}
+
+.avx-actual-mark {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 3px var(--good-surface);
+  transform: translate(-50%, -50%);
+  transition: left 0.4s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.avx-track[data-tier="caution"] .avx-actual-mark {
+  background: var(--warn);
+  box-shadow: 0 0 0 3px var(--warn-surface);
+}
+
+.avx-track[data-tier="degraded"] .avx-actual-mark {
+  background: var(--critical);
+  box-shadow: 0 0 0 3px var(--critical-surface);
+}
+
+.avx-values {
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.avx-vs {
+  margin: 0 4px;
+  color: var(--text-tertiary);
+}
+
+.avx-legend {
+  display: flex;
+  gap: var(--space-5);
+  margin: var(--space-3) 0 0;
+}
+
+.avx-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.avx-legend-mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.avx-legend-mark.expected {
+  width: 2px;
+  height: 10px;
+  border-radius: 0;
+  background: var(--text-tertiary);
+}
+
+.avx-legend-mark.actual {
+  background: var(--good);
+}
+
+/* ============================================================
+   MISSION -- preset cards + phase flow
+   ============================================================ */
+
+.mission-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.mission-preset-card {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.mission-preset-card:hover {
+  border-color: var(--accent-dim);
+}
+
+.mission-preset-card.active {
+  background: var(--accent-surface);
+  border-color: rgba(133, 166, 204, 0.4);
+}
+
+.mission-preset-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+
+.mission-preset-card.active .mission-preset-name {
+  color: var(--accent);
+}
+
+.mission-preset-assumptions {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.phase-flow {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: var(--space-5);
+}
+
+.phase-flow-node {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.phase-flow-connector {
+  position: relative;
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.phase-flow-connector::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.phase-flow-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  min-width: 148px;
+}
+
+/* ============================================================
+   MOTION -- restrained, purposeful, reduced-motion aware
+   ============================================================ */
+
+.page-header {
+  animation: page-fade-in 0.28s ease;
+}
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-header,
+  .twin-inspector,
+  .twin-sync.done {
+    animation: none !important;
+  }
+
+  .avx-actual-mark {
+    transition: none !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 
@@ -976,6 +1341,51 @@ input[type="range"] {
 
   .metric-hero .value {
     font-size: 48px;
+  }
+
+  .twin-canvas {
+    height: min(56vh, 560px);
+    min-height: 320px;
+  }
+
+  .twin-readout {
+    top: var(--space-3);
+    left: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .twin-readout-item {
+    gap: var(--space-4);
+  }
+
+  .twin-inspector {
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    max-width: none;
+  }
+
+  .mission-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .phase-flow {
+    flex-direction: column;
+  }
+
+  .phase-flow-node {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .phase-flow-connector {
+    width: 1px;
+    height: 16px;
+    margin-left: 12px;
+  }
+
+  .phase-flow-connector::after {
+    display: none;
   }
 }
 

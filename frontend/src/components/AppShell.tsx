@@ -20,6 +20,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           to={to}
           end={end}
           onClick={onNavigate}
+          viewTransition
           className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
         >
           <Icon />

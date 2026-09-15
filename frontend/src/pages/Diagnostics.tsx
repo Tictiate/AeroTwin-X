@@ -1,25 +1,8 @@
 import { useAppData } from "../context/AppDataContext";
-import { Bar, DivergeBar } from "../components/Bar";
+import { Bar } from "../components/Bar";
 import { StatusPill } from "../components/StatusPill";
+import { ActualVsExpected } from "../components/ActualVsExpected";
 import { humanize, statusTier } from "../lib/status";
-import type { PhysicsPrediction, PhysicsResidual, Telemetry } from "../api/types";
-
-const CHANNELS: Array<{
-  actual: keyof Telemetry;
-  expected: keyof PhysicsPrediction;
-  residual: keyof PhysicsResidual;
-  normalized: keyof PhysicsResidual;
-  label: string;
-  decimals: number;
-}> = [
-  { actual: "rpm", expected: "expectedRpm", residual: "rpmResidual", normalized: "normalizedRpmResidual", label: "RPM", decimals: 0 },
-  { actual: "egt", expected: "expectedEgt", residual: "egtResidual", normalized: "normalizedEgtResidual", label: "EGT", decimals: 0 },
-  { actual: "cht", expected: "expectedCht", residual: "chtResidual", normalized: "normalizedChtResidual", label: "CHT", decimals: 0 },
-  { actual: "oilTemperature", expected: "expectedOilTemperature", residual: "oilTemperatureResidual", normalized: "normalizedOilTemperatureResidual", label: "Oil Temp", decimals: 1 },
-  { actual: "oilPressure", expected: "expectedOilPressure", residual: "oilPressureResidual", normalized: "normalizedOilPressureResidual", label: "Oil Pressure", decimals: 0 },
-  { actual: "fuelFlow", expected: "expectedFuelFlow", residual: "fuelFlowResidual", normalized: "normalizedFuelFlowResidual", label: "Fuel Flow", decimals: 1 },
-  { actual: "vibration", expected: "expectedVibration", residual: "vibrationResidual", normalized: "normalizedVibrationResidual", label: "Vibration", decimals: 2 },
-];
 
 export default function Diagnostics() {
   const { snapshot, diagnostics } = useAppData();
@@ -127,42 +110,9 @@ export default function Diagnostics() {
       </details>
 
       <details className="disclosure section">
-        <summary>Physics Residuals</summary>
+        <summary>Physics Residuals — Actual vs Expected</summary>
         <div className="disclosure-body">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Channel</th>
-                <th>Actual</th>
-                <th>Expected</th>
-                <th>Residual</th>
-              </tr>
-            </thead>
-            <tbody>
-              {CHANNELS.map((c) => {
-                const residual = residuals[c.residual] as number;
-                return (
-                  <tr key={c.label}>
-                    <td>{c.label}</td>
-                    <td>{(telemetry[c.actual] as number).toFixed(c.decimals)}</td>
-                    <td>{(physicsPrediction[c.expected] as number).toFixed(c.decimals)}</td>
-                    <td className={residual >= 0 ? "pos" : "neg"}>
-                      {residual >= 0 ? "+" : ""}
-                      {residual.toFixed(c.decimals)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div style={{ marginTop: 14 }}>
-            <span className="eyebrow">Normalized (fraction of physical operating range)</span>
-            <div style={{ marginTop: 8 }}>
-              {CHANNELS.map((c) => (
-                <DivergeBar key={c.label} label={c.label} value={residuals[c.normalized] as number} limit={0.5} />
-              ))}
-            </div>
-          </div>
+          <ActualVsExpected telemetry={telemetry} physicsPrediction={physicsPrediction} residuals={residuals} />
         </div>
       </details>
 

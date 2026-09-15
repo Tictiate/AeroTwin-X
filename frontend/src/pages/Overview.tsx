@@ -1,8 +1,10 @@
 import { useAppData } from "../context/AppDataContext";
 import { useMissionSnapshot } from "../hooks/useMissionSnapshot";
 import { EngineTwin } from "../components/twin3d/EngineTwin";
+import { ActualVsExpected } from "../components/ActualVsExpected";
 import { SimulatorControl } from "../components/SimulatorControl";
 import { humanize, statusTier } from "../lib/status";
+import { OVERVIEW_RESIDUAL_CHANNELS } from "../lib/channels";
 
 function alertHeadline(diagnosticType: string, status: string, faultType: string | null): string {
   if (diagnosticType === "PHYSICAL_FAULT" && faultType) {
@@ -61,6 +63,22 @@ export default function Overview() {
           <EngineTwin telemetry={effectiveTelemetry} health={health} activeFault={simulatorFault?.faultType ?? "NORMAL"} compact />
         </div>
       </div>
+
+      {snapshot && (
+        <div className="section">
+          <div className="section-head">
+            <h2>Actual vs Expected</h2>
+          </div>
+          <div className="panel">
+            <ActualVsExpected
+              telemetry={snapshot.telemetry}
+              physicsPrediction={snapshot.physicsPrediction}
+              residuals={snapshot.residuals}
+              channels={OVERVIEW_RESIDUAL_CHANNELS}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="section">
         <div className="section-head">
